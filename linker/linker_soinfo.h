@@ -291,6 +291,8 @@ struct soinfo {
   void generate_handle();
   void* to_handle();
 
+  void remove_from_rando_map();
+
  private:
   bool is_image_linked() const;
   void set_image_linked();
@@ -368,6 +370,45 @@ struct soinfo {
   // version >= 4
   ElfW(Relr)* relr_;
   size_t relr_count_;
+
+ public:
+  struct SegmentInfo {
+    ElfW(Addr) phdr_addr, real_addr;
+    ElfW(Word) real_size, page_size;
+    size_t index;
+  };
+
+  typedef std::vector<SegmentInfo> seginfo_list_t;
+
+ public:
+  seginfo_list_t rand_addr_segments;
+
+  SegmentInfo* find_segment_info(ElfW(Addr) addr, bool check_vaddr) {
+    for (SegmentInfo &seg_info : rand_addr_segments) {
+      if (addr >= seg_info.real_addr &&
+          addr < (seg_info.real_addr + seg_info.real_size)) {
+        return &seg_info;
+      }
+      // TODO(ahomescu): would it be faster
+      // if check_vaddr were a template parameter???
+      if (check_vaddr &&
+          addr >= (load_bias + seg_info.phdr_addr) &&
+          addr <  (load_bias + seg_info.phdr_addr + seg_info.real_size)) {
+        return &seg_info;
+      }
+    }
+    return nullptr;
+  }
+
+  void sort_rand_addr_segments() {
+    std::sort(rand_addr_segments.begin(), rand_addr_segments.end(),
+              [](const SegmentInfo &a, const SegmentInfo &b) {
+                return a.phdr_addr < b.phdr_addr;
+              });
+  }
+
+private:
+  ElfW(Addr) translate_vaddr(ElfW(Addr) vaddr) const;
 };
 
 // This function is used by dlvsym() to calculate hash of sym_ver

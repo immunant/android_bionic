@@ -116,6 +116,7 @@
 #define PF_ARM_SB		0x10000000
 #define PF_ARM_PI		0x20000000
 #define PF_ARM_ENTRY		0x80000000
+#define PF_RAND_ADDR		0x00100000
 
 /* Processor specific program header types */
 #define PT_ARM_EXIDX		(PT_LOPROC + 1)

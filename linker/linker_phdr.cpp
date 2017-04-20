@@ -29,6 +29,7 @@
 #include "linker_phdr.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -495,6 +496,9 @@ size_t phdr_table_get_load_size(const ElfW(Phdr)* phdr_table, size_t phdr_count,
     if (phdr->p_type != PT_LOAD) {
       continue;
     }
+    if ((phdr->p_flags & PF_RAND_ADDR) != 0) {
+      continue;
+    }
     found_pt_load = true;
 
     if (phdr->p_vaddr < min_vaddr) {
@@ -621,6 +625,8 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
 }
 
 bool ElfReader::LoadSegments() {
+  int dev_urandom = -1;
+
   for (size_t i = 0; i < phdr_num_; ++i) {
     const ElfW(Phdr)* phdr = &phdr_table_[i];
 
@@ -628,8 +634,33 @@ bool ElfReader::LoadSegments() {
       continue;
     }
 
+    bool random_start = (phdr->p_flags & PF_RAND_ADDR) != 0;
+    ElfW(Addr) random_start_address = 0;
+    // Linux provides 8 bits of entropy for mmaps (see
+    // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
+    // this results in little to no actual randomness. We try to fix this here.
+    if (random_start) {
+      if (dev_urandom < 0) {
+        dev_urandom = TEMP_FAILURE_RETRY(open("/dev/urandom", O_RDONLY));
+        if (dev_urandom < 0) {
+          DL_ERR("cannot open /dev/urandom: %s", strerror(errno));
+          return -1;
+        }
+        TRACE("[ Opened /dev/urandom file-descriptor=%d]", dev_urandom);
+      }
+
+      // TODO(sjcrane) figure out a good range for this
+      // tentatively using 0xb0000000-0xb6000000
+      unsigned long low = 0xb0000000;
+      do {
+        read(dev_urandom, &random_start_address, sizeof(ElfW(Addr)));
+      } while (random_start_address >= 0xfc000000); // 0x100000000 - (0x100000000 % range)
+      random_start_address = random_start_address/42 + low;
+    }
+
     // Segment addresses in memory.
-    ElfW(Addr) seg_start = phdr->p_vaddr + load_bias_;
+
+    ElfW(Addr) seg_start = random_start ? random_start_address : (phdr->p_vaddr + load_bias_);
     ElfW(Addr) seg_end   = seg_start + phdr->p_memsz;
 
     ElfW(Addr) seg_page_start = PAGE_START(seg_start);
@@ -643,6 +674,11 @@ bool ElfReader::LoadSegments() {
 
     ElfW(Addr) file_page_start = PAGE_START(file_start);
     ElfW(Addr) file_length = file_end - file_page_start;
+
+    int seg_map_flags = MAP_PRIVATE;
+    if (!random_start) {
+      seg_map_flags |= MAP_FIXED;
+    }
 
     if (file_size_ <= 0) {
       DL_ERR("\"%s\" invalid file size: %" PRId64, name_.c_str(), file_size_);
@@ -676,12 +712,32 @@ bool ElfReader::LoadSegments() {
       void* seg_addr = mmap64(reinterpret_cast<void*>(seg_page_start),
                             file_length,
                             prot,
-                            MAP_FIXED|MAP_PRIVATE,
+                            seg_map_flags,
                             fd_,
                             file_offset_ + file_page_start);
       if (seg_addr == MAP_FAILED) {
         DL_ERR("couldn't map \"%s\" segment %zd: %s", name_.c_str(), i, strerror(errno));
         return false;
+      }
+
+      if (random_start) {
+        // We got a new segment start address, so recompute the others.
+        seg_start = reinterpret_cast<ElfW(Addr)>(seg_addr);
+        seg_end   = seg_start + phdr->p_memsz;
+
+        seg_page_start = PAGE_START(seg_start);
+        seg_page_end   = PAGE_END(seg_end);
+
+        seg_file_end   = seg_start + phdr->p_filesz;
+
+        // Record the segment in soinfo's segment list
+        soinfo::SegmentInfo new_seg;
+        new_seg.phdr_addr = phdr->p_vaddr;
+        new_seg.real_addr = seg_start;
+        new_seg.real_size = seg_end - seg_start;
+        new_seg.page_size = seg_page_end - seg_page_start;
+        new_seg.index = i;
+        rand_addr_segments_.push_back(new_seg);
       }
     }
 
@@ -713,6 +769,10 @@ bool ElfReader::LoadSegments() {
       prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, zeromap, zeromap_size, ".bss");
     }
   }
+
+  if (dev_urandom >= 0)
+    close(dev_urandom);
+
   return true;
 }
 
@@ -727,6 +787,10 @@ static int _phdr_table_set_load_prot(const ElfW(Phdr)* phdr_table, size_t phdr_c
 
   for (; phdr < phdr_limit; phdr++) {
     if (phdr->p_type != PT_LOAD || (phdr->p_flags & PF_W) != 0) {
+      continue;
+    }
+    if ((phdr->p_flags & PF_RAND_ADDR) != 0) {
+      // FIXME(ahomescu): do we need to do anything here???
       continue;
     }
 

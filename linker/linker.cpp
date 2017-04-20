@@ -66,6 +66,7 @@
 #include "linker_relocs.h"
 #include "linker_reloc_iterators.h"
 #include "linker_utils.h"
+#include "rando_map.h"
 
 #include "android-base/macros.h"
 #include "android-base/strings.h"
@@ -333,6 +334,11 @@ static void soinfo_free(soinfo* si) {
   // clear links to/from si
   si->remove_all_links();
 
+  // release all segments in rand_addr_segments
+  for (soinfo::SegmentInfo &seg_info : si->rand_addr_segments) {
+    munmap(reinterpret_cast<void*>(seg_info.real_addr), seg_info.page_size);
+  }
+
   si->~soinfo();
   g_soinfo_allocator.free(si);
 }
@@ -372,7 +378,8 @@ static bool realpath_fd(int fd, std::string* realpath) {
 // Intended to be called by libc's __gnu_Unwind_Find_exidx().
 _Unwind_Ptr do_dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount) {
   for (soinfo* si = solist_get_head(); si != 0; si = si->next) {
-    if ((pc >= si->base) && (pc < (si->base + si->size))) {
+    if (((pc >= si->base) && (pc < (si->base + si->size))) ||
+        si->find_segment_info(pc, false) != nullptr) {
         *pcount = si->ARM_exidx_count;
         return reinterpret_cast<_Unwind_Ptr>(si->ARM_exidx);
     }
@@ -389,8 +396,8 @@ int do_dl_iterate_phdr(int (*cb)(dl_phdr_info* info, size_t size, void* data), v
   int rv = 0;
   for (soinfo* si = solist_get_head(); si != nullptr; si = si->next) {
     dl_phdr_info dl_info;
-    dl_info.dlpi_addr = si->link_map_head.l_addr;
-    dl_info.dlpi_name = si->link_map_head.l_name;
+    dl_info.dlpi_addr = si->load_bias;
+    dl_info.dlpi_name = si->get_realpath();
     dl_info.dlpi_phdr = si->phdr;
     dl_info.dlpi_phnum = si->phnum;
     rv = cb(&dl_info, sizeof(dl_phdr_info), data);
@@ -655,6 +662,17 @@ class LoadTask {
     si_->load_bias = elf_reader.load_bias();
     si_->phnum = elf_reader.phdr_count();
     si_->phdr = elf_reader.loaded_phdr();
+    si_->rand_addr_segments = elf_reader.rand_addr_segments();
+    si_->sort_rand_addr_segments();
+
+    // Add the rand_addr segments to the rando map.
+    for (soinfo::SegmentInfo &seg_info : si_->rand_addr_segments) {
+      rando_map_add(reinterpret_cast<uint8_t*>(seg_info.real_addr),
+                    seg_info.real_size,
+                    reinterpret_cast<uint8_t*>(seg_info.phdr_addr + si_->load_bias),
+                    reinterpret_cast<uint8_t*>(seg_info.phdr_addr),
+                    0, nullptr);
+    }
 
     return true;
   }
@@ -883,7 +901,10 @@ static const ElfW(Sym)* dlsym_linear_lookup(android_namespace_t* ns,
 soinfo* find_containing_library(const void* p) {
   ElfW(Addr) address = reinterpret_cast<ElfW(Addr)>(p);
   for (soinfo* si = solist_get_head(); si != nullptr; si = si->next) {
-    if (address >= si->base && address - si->base < si->size) {
+    if ((address >= si->base && address - si->base < si->size)
+        || si->find_segment_info(address, false) != nullptr) {
+      // FIXME: this assumes that si->size also covers
+      // the virtual address ranges of all PF_RAND_ADDR segments.
       return si;
     }
   }
@@ -1868,6 +1889,7 @@ static void soinfo_unload_impl(soinfo* root) {
            si->get_realpath(),
            si);
     si->call_destructors();
+    si->remove_from_rando_map();
     LD_LOG(kLogDlopen,
            "... dlclose: calling destructors for \"%s\"@%p ... done",
            si->get_realpath(),
@@ -2685,6 +2707,8 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
     ElfW(Word) type = ELFW(R_TYPE)(rel->r_info);
     ElfW(Word) sym = ELFW(R_SYM)(rel->r_info);
 
+    // FIXME: we assume that there are no relocation inside PF_RAND_ADDR
+    // segments. If there are, we'll get a SIGSEGV here.
     ElfW(Addr) reloc = static_cast<ElfW(Addr)>(rel->r_offset + load_bias);
     ElfW(Addr) sym_addr = 0;
     const char* sym_name = nullptr;
@@ -2755,6 +2779,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
             break;
 #if defined(__x86_64__)
           case R_X86_64_PC32:
+            // FIXME(ahomescu): do anything here???
             sym_addr = reloc;
             break;
 #elif defined(__i386__)
@@ -2825,7 +2850,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p\n",
                    reinterpret_cast<void*>(reloc),
                    reinterpret_cast<void*>(load_bias + addend));
-        *reinterpret_cast<ElfW(Addr)*>(reloc) = (load_bias + addend);
+        *reinterpret_cast<ElfW(Addr)*>(reloc) = translate_vaddr(addend);
         break;
       case R_GENERIC_IRELATIVE:
         count_relocation(kRelocRelative);
@@ -2846,7 +2871,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
             }
           }
 #endif
-          ElfW(Addr) ifunc_addr = call_ifunc_resolver(load_bias + addend);
+          ElfW(Addr) ifunc_addr = call_ifunc_resolver(translate_vaddr(addend));
 #if !defined(__LP64__)
           // Unprotect it afterwards...
           if (has_text_relocations) {
