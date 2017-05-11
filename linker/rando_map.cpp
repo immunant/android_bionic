@@ -6,8 +6,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <async_safe/log.h>
+
 #include "private/bionic_prctl.h"
-#include "private/libc_logging.h"
 
 #include "linker.h"
 #include "rando_map.h"
@@ -56,7 +57,7 @@ static void *alloc_map_page() {
                          MAP_PRIVATE | MAP_ANONYMOUS,
                          0, 0);
   if (map_start == MAP_FAILED)
-    __libc_fatal("rando_map mmap failed");
+    async_safe_fatal("rando_map mmap failed");
 
   memset(map_start, 0, PAGE_SIZE);
 
@@ -132,7 +133,7 @@ static void map_tree_insert_node(RandoMapNode *node,
     if (curr->right->prio > curr->prio)
       rotate_right_son(ptr);
   } else {
-    __libc_fatal("overlapping rando map nodes");
+    async_safe_fatal("overlapping rando map nodes");
   }
 }
 
@@ -140,7 +141,7 @@ static RandoMapNode *map_tree_delete_node(uint8_t *div_start,
                                           RandoMapNode **ptr) {
   RandoMapNode *curr = *ptr;
   if (curr == nullptr)
-    __libc_fatal("trying to delete inexistent node");
+    async_safe_fatal("trying to delete inexistent node");
 
   if (div_start < curr->div_start) {
     return map_tree_delete_node(div_start, &curr->left);
