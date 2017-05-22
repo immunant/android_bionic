@@ -34,6 +34,8 @@
 
 #include "linker_namespaces.h"
 
+#include "private/bionic_page.h"
+
 #define FLAG_LINKED           0x00000001
 #define FLAG_EXE              0x00000004 // The main executable
 #define FLAG_LINKER           0x00000010 // The linker itself
@@ -385,8 +387,9 @@ struct soinfo {
 
   SegmentInfo* find_segment_info(ElfW(Addr) addr, bool check_vaddr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
-      if (addr >= seg_info.real_addr &&
-          addr < (seg_info.real_addr + seg_info.real_size)) {
+      ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
+      if (addr >= bin_start &&
+          addr < (bin_start + seg_info.real_size)) {
         return &seg_info;
       }
       // TODO(ahomescu): would it be faster
