@@ -63,7 +63,7 @@ class ElfReader {
   bool ReadSectionHeaders();
   bool ReadDynamicSection();
   bool ReserveAddressSpace(const android_dlextinfo* extinfo);
-  bool LoadSegments();
+  bool LoadSegments(const android_dlextinfo* extinfo);
   bool FindPhdr();
   bool CheckPhdr(ElfW(Addr));
   bool CheckFileRange(ElfW(Addr) offset, size_t size, size_t alignment);

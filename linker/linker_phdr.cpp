@@ -173,7 +173,7 @@ bool ElfReader::Load(const android_dlextinfo* extinfo) {
     return true;
   }
   if (ReserveAddressSpace(extinfo) &&
-      LoadSegments() &&
+      LoadSegments(extinfo) &&
       FindPhdr()) {
     did_load_ = true;
   }
@@ -624,7 +624,7 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
   return true;
 }
 
-bool ElfReader::LoadSegments() {
+bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
   int dev_urandom = -1;
 
   for (size_t i = 0; i < phdr_num_; ++i) {
@@ -635,6 +635,12 @@ bool ElfReader::LoadSegments() {
     }
 
     bool random_start = (phdr->p_flags & PF_RAND_ADDR) != 0;
+    if (extinfo != nullptr && (
+          extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS ||
+          extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR ||
+          extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS))
+      random_start = false;
+
     ElfW(Addr) random_start_address = 0;
     // Linux provides 8 bits of entropy for mmaps (see
     // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
