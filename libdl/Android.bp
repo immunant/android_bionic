@@ -25,6 +25,10 @@ cc_library_static {
     sanitize: {
         never: true,
     },
+
+    // Various functions use __builtin_return_address to get the address of
+    // their caller, and depend on the function not getting wrapped or outlined.
+    pagerando: false,
 }
 
 cc_library {
