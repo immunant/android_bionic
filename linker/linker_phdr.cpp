@@ -655,13 +655,28 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
         TRACE("[ Opened /dev/urandom file-descriptor=%d]", dev_urandom);
       }
 
+#if defined(__arm__)
       // TODO(sjcrane) figure out a good range for this
       // tentatively using 0xb0000000-0xb6000000
       unsigned long low = 0xb0000000;
+      // unsigned long high = 0xb6000000;
+      unsigned long range = 0xfc000000; // largest multiple of (high-low) less
+                                        // than 0x100000000
+      unsigned long quotient = 42; // range / (high-low)
+#elif defined(__aarch64__)
+      // TODO(sjcrane) figure out a good range for this
+      // tentatively using 0xb0000000-0xd0000000
+      unsigned long low = 0x1000000000;
+      // unsigned long high = 0x500000000;
+      unsigned long range = 0xFFFFFFC000000000; // largest multiple of
+                                                // (high-low) less than
+                                                // 0x10000000000000000
+      unsigned long quotient = 0x3FFFFFF; // range / (high-low)
+#endif
       do {
         read(dev_urandom, &random_start_address, sizeof(ElfW(Addr)));
-      } while (random_start_address >= 0xfc000000); // 0x100000000 - (0x100000000 % range)
-      random_start_address = random_start_address/42 + low;
+      } while (random_start_address >= range);
+      random_start_address = random_start_address/quotient + low;
     }
 
     // Segment addresses in memory.
