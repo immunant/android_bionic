@@ -293,8 +293,6 @@ struct soinfo {
   void generate_handle();
   void* to_handle();
 
-  void remove_from_rando_map();
-
  private:
   bool is_image_linked() const;
   void set_image_linked();

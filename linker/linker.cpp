@@ -66,7 +66,6 @@
 #include "linker_relocs.h"
 #include "linker_reloc_iterators.h"
 #include "linker_utils.h"
-// #include "rando_map.h"
 
 #include "android-base/macros.h"
 #include "android-base/strings.h"
@@ -664,15 +663,6 @@ class LoadTask {
     si_->phdr = elf_reader.loaded_phdr();
     si_->rand_addr_segments = elf_reader.rand_addr_segments();
     si_->sort_rand_addr_segments();
-
-    // // Add the rand_addr segments to the rando map.
-    // for (soinfo::SegmentInfo &seg_info : si_->rand_addr_segments) {
-    //   rando_map_add(reinterpret_cast<uint8_t*>(seg_info.real_addr),
-    //                 seg_info.real_size,
-    //                 reinterpret_cast<uint8_t*>(seg_info.phdr_addr + si_->load_bias),
-    //                 reinterpret_cast<uint8_t*>(seg_info.phdr_addr),
-    //                 0, nullptr);
-    // }
 
     return true;
   }
@@ -1889,7 +1879,6 @@ static void soinfo_unload_impl(soinfo* root) {
            si->get_realpath(),
            si);
     si->call_destructors();
-    // si->remove_from_rando_map();
     LD_LOG(kLogDlopen,
            "... dlclose: calling destructors for \"%s\"@%p ... done",
            si->get_realpath(),

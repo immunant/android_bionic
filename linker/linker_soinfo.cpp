@@ -41,7 +41,6 @@
 #include "linker_logger.h"
 #include "linker_utils.h"
 #include "private/bionic_page.h"
-#include "rando_map.h"
 
 // TODO(dimitry): These functions are currently located in linker.cpp - find a better place for it
 bool find_verdef_version_index(const soinfo* si, const version_info* vi, ElfW(Versym)* versym);
@@ -767,12 +766,6 @@ void soinfo::generate_handle() {
            g_soinfo_handles_map.find(handle_) != g_soinfo_handles_map.end());
 
   g_soinfo_handles_map[handle_] = this;
-}
- 
-void soinfo::remove_from_rando_map() {
-  for (soinfo::SegmentInfo &seg_info : rand_addr_segments) {
-    rando_map_delete(reinterpret_cast<uint8_t*>(seg_info.real_addr));
-  }
 }
 
 ElfW(Addr) soinfo::translate_vaddr(ElfW(Addr) vaddr) const {
