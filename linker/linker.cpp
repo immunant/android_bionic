@@ -2836,18 +2836,22 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
       case R_GENERIC_RELATIVE:
         count_relocation(kRelocRelative);
         MARK(rel->r_offset);
-        TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p\n",
-                   reinterpret_cast<void*>(reloc),
-                   reinterpret_cast<void*>(load_bias + addend));
-        *reinterpret_cast<ElfW(Addr)*>(reloc) = translate_vaddr(addend);
+        {
+          ElfW(Addr) target = translate_vaddr(addend);
+          TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p\n",
+                     reinterpret_cast<void*>(reloc),
+                     reinterpret_cast<void*>(target));
+          *reinterpret_cast<ElfW(Addr)*>(reloc) = target;
+        }
         break;
       case R_GENERIC_IRELATIVE:
         count_relocation(kRelocRelative);
         MARK(rel->r_offset);
-        TRACE_TYPE(RELO, "RELO IRELATIVE %16p <- %16p\n",
-                    reinterpret_cast<void*>(reloc),
-                    reinterpret_cast<void*>(load_bias + addend));
         {
+          ElfW(Addr) target = translate_vaddr(addend);
+          TRACE_TYPE(RELO, "RELO IRELATIVE %16p <- %16p\n",
+                     reinterpret_cast<void*>(reloc),
+                     reinterpret_cast<void*>(target));
 #if !defined(__LP64__)
           // When relocating dso with text_relocation .text segment is
           // not executable. We need to restore elf flags for this
@@ -2860,7 +2864,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
             }
           }
 #endif
-          ElfW(Addr) ifunc_addr = call_ifunc_resolver(translate_vaddr(addend));
+          ElfW(Addr) ifunc_addr = call_ifunc_resolver(target);
 #if !defined(__LP64__)
           // Unprotect it afterwards...
           if (has_text_relocations) {
