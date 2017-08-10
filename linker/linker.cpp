@@ -378,7 +378,7 @@ static bool realpath_fd(int fd, std::string* realpath) {
 _Unwind_Ptr do_dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount) {
   for (soinfo* si = solist_get_head(); si != 0; si = si->next) {
     if (((pc >= si->base) && (pc < (si->base + si->size))) ||
-        si->find_segment_info(pc, false) != nullptr) {
+        si->find_rand_segment_info(pc, false) != nullptr) {
         *pcount = si->ARM_exidx_count;
         return reinterpret_cast<_Unwind_Ptr>(si->ARM_exidx);
     }
@@ -892,7 +892,7 @@ soinfo* find_containing_library(const void* p) {
   ElfW(Addr) address = reinterpret_cast<ElfW(Addr)>(p);
   for (soinfo* si = solist_get_head(); si != nullptr; si = si->next) {
     if ((address >= si->base && address - si->base < si->size)
-        || si->find_segment_info(address, false) != nullptr) {
+        || si->find_rand_segment_info(address, false) != nullptr) {
       // FIXME: this assumes that si->size also covers
       // the virtual address ranges of all PF_RAND_ADDR segments.
       return si;

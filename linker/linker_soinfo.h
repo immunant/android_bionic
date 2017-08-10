@@ -385,18 +385,11 @@ struct soinfo {
 
   void sort_rand_addr_segments();
 
-  SegmentInfo* find_segment_info(ElfW(Addr) addr, bool check_vaddr) {
+  SegmentInfo* find_rand_segment_info(ElfW(Addr) addr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
       ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
       if (addr >= bin_start &&
           addr < (bin_start + seg_info.real_size)) {
-        return &seg_info;
-      }
-      // TODO(ahomescu): would it be faster
-      // if check_vaddr were a template parameter???
-      if (check_vaddr &&
-          addr >= (load_bias + seg_info.phdr_addr) &&
-          addr <  (load_bias + seg_info.phdr_addr + seg_info.real_size)) {
         return &seg_info;
       }
     }
