@@ -638,7 +638,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       !((extinfo != nullptr && (
            extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS ||
            extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR ||
-           extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS))
+           extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS)));
 
     ElfW(Addr) random_start_address = 0;
     // Linux provides 8 bits of entropy for mmaps (see
