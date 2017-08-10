@@ -2768,7 +2768,6 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
             break;
 #if defined(__x86_64__)
           case R_X86_64_PC32:
-            // FIXME(ahomescu): do anything here???
             sym_addr = reloc;
             break;
 #elif defined(__i386__)
