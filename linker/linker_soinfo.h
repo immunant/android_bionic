@@ -383,6 +383,8 @@ struct soinfo {
  public:
   seginfo_list_t rand_addr_segments;
 
+  void sort_rand_addr_segments();
+
   SegmentInfo* find_segment_info(ElfW(Addr) addr, bool check_vaddr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
       ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
@@ -399,13 +401,6 @@ struct soinfo {
       }
     }
     return nullptr;
-  }
-
-  void sort_rand_addr_segments() {
-    std::sort(rand_addr_segments.begin(), rand_addr_segments.end(),
-              [](const SegmentInfo &a, const SegmentInfo &b) {
-                return a.phdr_addr < b.phdr_addr;
-              });
   }
 
 private:

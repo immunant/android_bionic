@@ -3716,6 +3716,13 @@ bool soinfo::protect_relro() {
   return true;
 }
 
+void soinfo::sort_rand_addr_segments() {
+  std::sort(rand_addr_segments.begin(), rand_addr_segments.end(),
+            [](const SegmentInfo &a, const SegmentInfo &b) {
+              return a.phdr_addr < b.phdr_addr;
+            });
+}
+
 static std::vector<android_namespace_t*> init_default_namespace_no_config(bool is_asan) {
   g_default_namespace.set_isolated(false);
   auto default_ld_paths = is_asan ? kAsanDefaultLdPaths : kDefaultLdPaths;
