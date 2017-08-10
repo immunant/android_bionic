@@ -395,8 +395,8 @@ int do_dl_iterate_phdr(int (*cb)(dl_phdr_info* info, size_t size, void* data), v
   int rv = 0;
   for (soinfo* si = solist_get_head(); si != nullptr; si = si->next) {
     dl_phdr_info dl_info;
-    dl_info.dlpi_addr = si->load_bias;
-    dl_info.dlpi_name = si->get_realpath();
+    dl_info.dlpi_addr = si->link_map_head.l_addr;
+    dl_info.dlpi_name = si->link_map_head.l_name;
     dl_info.dlpi_phdr = si->phdr;
     dl_info.dlpi_phnum = si->phnum;
     rv = cb(&dl_info, sizeof(dl_phdr_info), data);
