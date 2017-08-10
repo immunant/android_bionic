@@ -493,10 +493,8 @@ size_t phdr_table_get_load_size(const ElfW(Phdr)* phdr_table, size_t phdr_count,
   for (size_t i = 0; i < phdr_count; ++i) {
     const ElfW(Phdr)* phdr = &phdr_table[i];
 
-    if (phdr->p_type != PT_LOAD) {
-      continue;
-    }
-    if ((phdr->p_flags & PF_RAND_ADDR) != 0) {
+    if (phdr->p_type != PT_LOAD ||
+        (phdr->p_flags & PF_RAND_ADDR) != 0) {
       continue;
     }
     found_pt_load = true;
@@ -634,6 +632,8 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       continue;
     }
 
+    // Randomly map PF_RAND_ADDR segments, but only if the client is not
+    // overriding with a fixed load address
     bool random_start = (phdr->p_flags & PF_RAND_ADDR) != 0 &&
       !((extinfo != nullptr && (
            extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS ||
@@ -741,7 +741,8 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       }
 
       if (random_start) {
-        // We got a new segment start address, so recompute the others.
+        // We are using a randomize segment load address, so recompute the other
+        // segment parameters based on the selected random address.
         seg_start = reinterpret_cast<ElfW(Addr)>(seg_addr);
         seg_end   = seg_start + phdr->p_memsz;
 
@@ -750,7 +751,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
 
         seg_file_end   = seg_start + phdr->p_filesz;
 
-        // Record the segment in soinfo's segment list
+        // Record the segment in soinfo's random segment list
         soinfo::SegmentInfo new_seg;
         new_seg.phdr_addr = phdr->p_vaddr;
         new_seg.real_addr = seg_start;
@@ -806,14 +807,13 @@ static int _phdr_table_set_load_prot(const ElfW(Phdr)* phdr_table, size_t phdr_c
   const ElfW(Phdr)* phdr_limit = phdr + phdr_count;
 
   for (; phdr < phdr_limit; phdr++) {
-    if (phdr->p_type != PT_LOAD || (phdr->p_flags & PF_W) != 0) {
-      continue;
-    }
-    if ((phdr->p_flags & PF_RAND_ADDR) != 0) {
-      // FIXME(ahomescu): do we need to do anything here???
+    if (phdr->p_type != PT_LOAD || (phdr->p_flags & PF_W) != 0 ||
+        (phdr->p_flags & PF_RAND_ADDR) != 0) {
       continue;
     }
 
+    // TODO(sjc): Should we adjust this address so we can support text relocs in
+    // pagerando bins?
     ElfW(Addr) seg_page_start = PAGE_START(phdr->p_vaddr) + load_bias;
     ElfW(Addr) seg_page_end   = PAGE_END(phdr->p_vaddr + phdr->p_memsz) + load_bias;
 
