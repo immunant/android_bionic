@@ -233,7 +233,6 @@ typedef Elf64_Xword Elf64_Relr;
 #define DF_1_SINGLETON  0x02000000
 #define DF_1_STUB       0x04000000
 #define DF_1_PIE        0x08000000
-#define DF_1_PAGERANDO  0x10000000
 
 /* http://www.sco.com/developers/gabi/latest/ch5.dynamic.html */
 #define DT_BIND_NOW 24
@@ -472,6 +471,10 @@ typedef Elf64_Xword Elf64_Relr;
 #define PF_R 0x4
 #define PF_MASKOS   0x0ff00000
 #define PF_MASKPROC 0xf0000000
+
+/* Android specific for Pagerando. This segment can be mapped at an arbitrary
+ * offset from all other segments in the library. */
+#define PF_RAND_ADDR		0x00100000
 
 #define PT_GNU_RELRO 0x6474e552
 
