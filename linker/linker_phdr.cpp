@@ -632,9 +632,11 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       continue;
     }
 
+    bool random_start = false;
+#if defined(__aarch64__) || defined(__arm__)
     // Randomly map PF_RAND_ADDR segments, but only if the client is not
     // overriding with a fixed load address
-    bool random_start = (phdr->p_flags & PF_RAND_ADDR) != 0 &&
+    random_start = (phdr->p_flags & PF_RAND_ADDR) != 0 &&
       !((extinfo != nullptr && (
            extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS ||
            extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR ||
@@ -655,16 +657,14 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       }
 
 #if defined(__arm__)
-      // TODO(sjcrane) figure out a good range for this
-      // tentatively using 0xb0000000-0xb6000000
+      // Tentatively using 0xb0000000-0xb6000000 as the pagerando range
       unsigned long low = 0xb0000000;
       // unsigned long high = 0xb6000000;
       unsigned long range = 0xfc000000; // largest multiple of (high-low) less
                                         // than 0x100000000
       unsigned long quotient = 42; // range / (high-low)
 #elif defined(__aarch64__)
-      // TODO(sjcrane) figure out a good range for this
-      // tentatively using 0xb0000000-0xd0000000
+      // Tentatively using 0x1000000000-0x5000000000 as the pagerando range
       unsigned long low = 0x1000000000;
       // unsigned long high = 0x500000000;
       unsigned long range = 0xFFFFFFC000000000; // largest multiple of
@@ -677,6 +677,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       } while (random_start_address >= range);
       random_start_address = random_start_address/quotient + low;
     }
+#endif // defined(__aarch64__) || defined(__arm__)
 
     // Segment addresses in memory.
 
