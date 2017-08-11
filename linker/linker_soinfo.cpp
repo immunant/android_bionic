@@ -768,19 +768,18 @@ void soinfo::generate_handle() {
   g_soinfo_handles_map[handle_] = this;
 }
 
-ElfW(Addr) soinfo::translate_vaddr(ElfW(Addr) vaddr) const {
-  ElfW(Addr) res = vaddr + load_bias;
+ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
+  ElfW(Addr) res = file_vaddr + load_bias;
   size_t size = rand_addr_segments.size();
   if (size == 0)
     return res;
 
-  int l = 0, h = size-1;
-  while (l <= h) {
+  for (int l = 0, h = size-1; l <= h; ) {
     unsigned i = (l+h)/2;
     const SegmentInfo &seg_info = rand_addr_segments[i];
-    if (vaddr >= seg_info.phdr_addr) {
-      if (vaddr < (seg_info.phdr_addr + seg_info.real_size)) {
-        return seg_info.real_addr + (vaddr - PAGE_START(seg_info.phdr_addr));
+    if (file_vaddr >= seg_info.phdr_addr) {
+      if (file_vaddr < (seg_info.phdr_addr + seg_info.real_size)) {
+        return seg_info.real_addr + (file_vaddr - PAGE_START(seg_info.phdr_addr));
       } else
         l = i+1;
     } else {

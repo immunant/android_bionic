@@ -2836,7 +2836,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         count_relocation(kRelocRelative);
         MARK(rel->r_offset);
         {
-          ElfW(Addr) target = translate_vaddr(addend);
+          ElfW(Addr) target = memory_vaddr(addend);
           TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p\n",
                      reinterpret_cast<void*>(reloc),
                      reinterpret_cast<void*>(target));
@@ -2847,7 +2847,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         count_relocation(kRelocRelative);
         MARK(rel->r_offset);
         {
-          ElfW(Addr) target = translate_vaddr(addend);
+          ElfW(Addr) target = memory_vaddr(addend);
           TRACE_TYPE(RELO, "RELO IRELATIVE %16p <- %16p\n",
                      reinterpret_cast<void*>(reloc),
                      reinterpret_cast<void*>(target));

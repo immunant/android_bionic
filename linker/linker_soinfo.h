@@ -396,8 +396,8 @@ struct soinfo {
     return nullptr;
   }
 
-private:
-  ElfW(Addr) translate_vaddr(ElfW(Addr) vaddr) const;
+ private:
+  ElfW(Addr) memory_vaddr(ElfW(Addr) file_vaddr) const;
 };
 
 // This function is used by dlvsym() to calculate hash of sym_ver
