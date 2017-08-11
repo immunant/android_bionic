@@ -388,13 +388,13 @@ struct soinfo {
   void set_rand_addr_segments(const seginfo_list_t &segments);
   const seginfo_list_t& get_rand_addr_segments() const;
 
-  // Find and return a pagerando randomly mapped segment containing the given
-  // virtual address
-  SegmentInfo* find_rand_segment_info(ElfW(Addr) addr) {
+  // Find and return segment info for pagerando randomly mapped segment
+  // containing the given (loaded) virtual address, if any.
+  SegmentInfo* find_rand_segment(ElfW(Addr) mem_vaddr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
       ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
-      if (addr >= bin_start &&
-          addr < (bin_start + seg_info.real_size)) {
+      if (mem_vaddr >= bin_start &&
+          mem_vaddr < (bin_start + seg_info.real_size)) {
         return &seg_info;
       }
     }
