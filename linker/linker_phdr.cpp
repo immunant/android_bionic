@@ -623,8 +623,6 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
 }
 
 bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
-  int dev_urandom = -1;
-
   for (size_t i = 0; i < phdr_num_; ++i) {
     const ElfW(Phdr)* phdr = &phdr_table_[i];
 
@@ -647,35 +645,31 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
     // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
     // this results in little to no actual randomness. We try to fix this here.
     if (random_start) {
-      if (dev_urandom < 0) {
-        dev_urandom = TEMP_FAILURE_RETRY(open("/dev/urandom", O_RDONLY));
-        if (dev_urandom < 0) {
-          DL_ERR("cannot open /dev/urandom: %s", strerror(errno));
-          return -1;
-        }
-        TRACE("[ Opened /dev/urandom file-descriptor=%d]", dev_urandom);
-      }
-
 #if defined(__arm__)
       // Tentatively using 0xb0000000-0xb6000000 as the pagerando range
-      unsigned long low = 0xb0000000;
-      // unsigned long high = 0xb6000000;
-      unsigned long range = 0xfc000000; // largest multiple of (high-low) less
-                                        // than 0x100000000
-      unsigned long quotient = 42; // range / (high-low)
+      unsigned long low  = 0xb0000000;
+      unsigned long high = 0xb6000000;
 #elif defined(__aarch64__)
       // Tentatively using 0x1000000000-0x5000000000 as the pagerando range
-      unsigned long low = 0x1000000000;
-      // unsigned long high = 0x500000000;
-      unsigned long range = 0xFFFFFFC000000000; // largest multiple of
-                                                // (high-low) less than
-                                                // 0x10000000000000000
-      unsigned long quotient = 0x3FFFFFF; // range / (high-low)
+      unsigned long low  = 0x1000000000;
+      unsigned long high = 0x5000000000;
 #endif
+
+      ElfW(Addr) range = high-low;
+
+      // 2^N % x == (2^N - x) % x where N = 32 or 64
+      ElfW(Addr) min = -range % range;
+
+      // Calculate a random value in the range [2^N % range, 2^N) where N = 32
+      // or 64 depending on the target address size.
       do {
-        read(dev_urandom, &random_start_address, sizeof(ElfW(Addr)));
-      } while (random_start_address >= range);
-      random_start_address = random_start_address/quotient + low;
+        // This is actually a ChaCha RNG seeded with getentropy(), so is
+        // reasonable for secure randomness. We use random_buf to get a 64-bit
+        // value on 64-bit platforms.
+        arc4random_buf(&random_start_address, sizeof(ElfW(Addr)));
+      } while (random_start_address < min);
+      // Map that random number back to the range [low, high)
+      random_start_address = random_start_address % range + low;
     }
 #endif // defined(__aarch64__) || defined(__arm__)
 
@@ -791,9 +785,6 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, zeromap, zeromap_size, ".bss");
     }
   }
-
-  if (dev_urandom >= 0)
-    close(dev_urandom);
 
   return true;
 }
