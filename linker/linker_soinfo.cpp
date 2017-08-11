@@ -770,22 +770,17 @@ void soinfo::generate_handle() {
 
 ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
   ElfW(Addr) res = file_vaddr + load_bias;
-  size_t size = rand_addr_segments.size();
-  if (size == 0)
-    return res;
 
-  for (int l = 0, h = size-1; l <= h; ) {
-    unsigned i = (l+h)/2;
-    const SegmentInfo &seg_info = rand_addr_segments[i];
-    if (file_vaddr >= seg_info.phdr_addr) {
-      if (file_vaddr < (seg_info.phdr_addr + seg_info.real_size)) {
-        return seg_info.real_addr + (file_vaddr - PAGE_START(seg_info.phdr_addr));
-      } else
-        l = i+1;
-    } else {
-      h = i-1;
-    }
-  }
+  auto I = std::lower_bound(
+    rand_addr_segments.begin(), rand_addr_segments.end(),
+    file_vaddr, [](const SegmentInfo &a, ElfW(Addr) addr) {
+      return ((a.phdr_addr + a.real_size) < addr);
+    });
+  if (I != rand_addr_segments.end() &&
+      file_vaddr >= I->phdr_addr &&
+      file_vaddr < (I->phdr_addr + I->real_size))
+    res = I->real_addr + (file_vaddr - PAGE_START(I->phdr_addr));
+
   return res;
 }
 
