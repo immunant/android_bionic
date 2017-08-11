@@ -731,8 +731,8 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       }
 
       if (random_start) {
-        // We are using a randomize segment load address, so recompute the other
-        // segment parameters based on the selected random address.
+        // We are using a randomized segment load address, so recompute the
+        // other segment parameters based on the selected random address.
         seg_start = reinterpret_cast<ElfW(Addr)>(seg_addr);
         seg_end   = seg_start + phdr->p_memsz;
 
@@ -744,7 +744,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
         // Record the segment in soinfo's random segment list
         rand_addr_segments_.emplace_back(phdr->p_vaddr,
                                          seg_start,
-                                         seg_end - seg_start,
+                                         phdr->p_memsz,
                                          seg_page_end - seg_page_start,
                                          i);
       }

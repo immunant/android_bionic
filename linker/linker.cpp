@@ -334,7 +334,7 @@ static void soinfo_free(soinfo* si) {
   si->remove_all_links();
 
   // release all segments in rand_addr_segments
-  for (soinfo::SegmentInfo &seg_info : si->rand_addr_segments) {
+  for (const soinfo::SegmentInfo &seg_info : si->get_rand_addr_segments()) {
     munmap(reinterpret_cast<void*>(seg_info.real_addr), seg_info.page_size);
   }
 
@@ -661,8 +661,7 @@ class LoadTask {
     si_->load_bias = elf_reader.load_bias();
     si_->phnum = elf_reader.phdr_count();
     si_->phdr = elf_reader.loaded_phdr();
-    si_->rand_addr_segments = elf_reader.rand_addr_segments();
-    si_->sort_rand_addr_segments();
+    si_->set_rand_addr_segments(elf_reader.rand_addr_segments());
 
     return true;
   }
@@ -3715,13 +3714,6 @@ bool soinfo::protect_relro() {
     return false;
   }
   return true;
-}
-
-void soinfo::sort_rand_addr_segments() {
-  std::sort(rand_addr_segments.begin(), rand_addr_segments.end(),
-            [](const SegmentInfo &a, const SegmentInfo &b) {
-              return a.phdr_addr < b.phdr_addr;
-            });
 }
 
 static std::vector<android_namespace_t*> init_default_namespace_no_config(bool is_asan) {

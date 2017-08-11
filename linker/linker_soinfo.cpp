@@ -768,8 +768,41 @@ void soinfo::generate_handle() {
   g_soinfo_handles_map[handle_] = this;
 }
 
+void soinfo::set_rand_addr_segments(const seginfo_list_t &segments) {
+  rand_addr_segments = segments;
+  is_rand_addr_contiguous = true;
+  if (rand_addr_segments.size() == 0)
+    return;
+
+  std::sort(rand_addr_segments.begin(), rand_addr_segments.end(),
+            [](const SegmentInfo &a, const SegmentInfo &b) {
+              return a.phdr_addr < b.phdr_addr;
+            });
+
+  // Ensure that the rand_addr segments are contigous by checking their phdr
+  // indices
+  size_t cur_index = rand_addr_segments[0].index;
+  rand_addr_min = rand_addr_segments[0].phdr_addr;
+  for (auto &seg : rand_addr_segments) {
+    if (seg.index != cur_index) {
+      is_rand_addr_contiguous = false;
+      break;
+    }
+    ++cur_index;
+    rand_addr_max = seg.phdr_addr + seg.real_size;
+  }
+}
+
+const soinfo::seginfo_list_t& soinfo::get_rand_addr_segments() const {
+  return rand_addr_segments;
+}
+
 ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
   ElfW(Addr) res = file_vaddr + load_bias;
+  if (is_rand_addr_contiguous &&
+      (file_vaddr < rand_addr_min ||
+       file_vaddr >= rand_addr_max))
+    return res;
 
   auto I = std::lower_bound(
     rand_addr_segments.begin(), rand_addr_segments.end(),

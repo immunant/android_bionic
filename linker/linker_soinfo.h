@@ -385,9 +385,8 @@ struct soinfo {
 
   typedef std::vector<SegmentInfo> seginfo_list_t;
 
-  seginfo_list_t rand_addr_segments;
-
-  void sort_rand_addr_segments();
+  void set_rand_addr_segments(const seginfo_list_t &segments);
+  const seginfo_list_t& get_rand_addr_segments() const;
 
   // Find and return a pagerando randomly mapped segment containing the given
   // virtual address
@@ -403,6 +402,18 @@ struct soinfo {
   }
 
  private:
+  // rand_addr_segments is a vector of randomly mapped segments, sorted by their
+  // file virtual address.
+  seginfo_list_t rand_addr_segments;
+
+  bool is_rand_addr_contiguous = false;
+
+  // If all rand_addr segments are contigous, these fields store the begin and
+  // end of the contigous file virtual address range. Only valid if
+  // is_rand_addr_contiguous is true.
+  ElfW(Addr) rand_addr_min = 0;
+  ElfW(Addr) rand_addr_max = 0;
+
   // Translate the given file virtual address to its corresponding virtual
   // address in memory. For segments loaded with basic ASLR, this is just
   // file_vaddr+load_bias, For segments randomly mapped with pagerando this
