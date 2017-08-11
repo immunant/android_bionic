@@ -690,11 +690,6 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
     ElfW(Addr) file_page_start = PAGE_START(file_start);
     ElfW(Addr) file_length = file_end - file_page_start;
 
-    int seg_map_flags = MAP_PRIVATE;
-    if (!random_start) {
-      seg_map_flags |= MAP_FIXED;
-    }
-
     if (file_size_ <= 0) {
       DL_ERR("\"%s\" invalid file size: %" PRId64, name_.c_str(), file_size_);
       return false;
@@ -727,7 +722,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       void* seg_addr = mmap64(reinterpret_cast<void*>(seg_page_start),
                             file_length,
                             prot,
-                            seg_map_flags,
+                            MAP_PRIVATE | (random_start ? 0 : MAP_FIXED),
                             fd_,
                             file_offset_ + file_page_start);
       if (seg_addr == MAP_FAILED) {
