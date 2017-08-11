@@ -385,6 +385,8 @@ struct soinfo {
 
   void sort_rand_addr_segments();
 
+  // Find and return a pagerando randomly mapped segment containing the given
+  // virtual address
   SegmentInfo* find_rand_segment_info(ElfW(Addr) addr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
       ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
@@ -397,6 +399,10 @@ struct soinfo {
   }
 
  private:
+  // Translate the given file virtual address to its corresponding virtual
+  // address in memory. For segments loaded with basic ASLR, this is just
+  // file_vaddr+load_bias, For segments randomly mapped with pagerando this
+  // function looks up the correct randomized virtual address for the target.
   ElfW(Addr) memory_vaddr(ElfW(Addr) file_vaddr) const;
 };
 
