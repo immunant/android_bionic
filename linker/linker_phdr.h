@@ -54,7 +54,7 @@ class ElfReader {
   const ElfW(Dyn)* dynamic() const { return dynamic_; }
   const char* get_string(ElfW(Word) index) const;
   bool is_mapped_by_caller() const { return mapped_by_caller_; }
-  soinfo::seginfo_list_t& rand_addr_segments() { return rand_addr_segments_; }
+  const soinfo::seginfo_list_t& rand_addr_segments() { return rand_addr_segments_; }
 
  private:
   bool ReadElfHeader();
@@ -105,7 +105,7 @@ class ElfReader {
   // Is map owned by the caller
   bool mapped_by_caller_;
 
-  // PT_RAND_ADDR segments;
+  // PT_RAND_ADDR segments
   soinfo::seginfo_list_t rand_addr_segments_;
 };
 

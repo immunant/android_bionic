@@ -385,7 +385,6 @@ struct soinfo {
 
   typedef std::vector<SegmentInfo> seginfo_list_t;
 
- public:
   seginfo_list_t rand_addr_segments;
 
   void sort_rand_addr_segments();
