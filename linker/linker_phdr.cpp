@@ -742,13 +742,11 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
         seg_file_end   = seg_start + phdr->p_filesz;
 
         // Record the segment in soinfo's random segment list
-        soinfo::SegmentInfo new_seg;
-        new_seg.phdr_addr = phdr->p_vaddr;
-        new_seg.real_addr = seg_start;
-        new_seg.real_size = seg_end - seg_start;
-        new_seg.page_size = seg_page_end - seg_page_start;
-        new_seg.index = i;
-        rand_addr_segments_.push_back(new_seg);
+        rand_addr_segments_.emplace_back(phdr->p_vaddr,
+                                         seg_start,
+                                         seg_end - seg_start,
+                                         seg_page_end - seg_page_start,
+                                         i);
       }
     }
 

@@ -376,6 +376,11 @@ struct soinfo {
     ElfW(Addr) phdr_addr, real_addr;
     ElfW(Word) real_size, page_size;
     size_t index;
+
+    SegmentInfo(ElfW(Addr) phdr_addr, ElfW(Addr) real_addr,
+                ElfW(Word) real_size, ElfW(Word) page_size, size_t index)
+      : phdr_addr(phdr_addr), real_addr(real_addr), real_size(real_size),
+        page_size(page_size), index(index) { }
   };
 
   typedef std::vector<SegmentInfo> seginfo_list_t;
