@@ -394,7 +394,7 @@ struct soinfo {
     for (SegmentInfo &seg_info : rand_addr_segments) {
       ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
       if (mem_vaddr >= bin_start &&
-          mem_vaddr < (bin_start + seg_info.real_size)) {
+          (mem_vaddr - bin_start) < seg_info.real_size) {
         return &seg_info;
       }
     }
