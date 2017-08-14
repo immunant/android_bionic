@@ -770,7 +770,6 @@ void soinfo::generate_handle() {
 
 void soinfo::set_rand_addr_segments(const seginfo_list_t &segments) {
   rand_addr_segments = segments;
-  is_rand_addr_contiguous = true;
   if (rand_addr_segments.size() == 0)
     return;
 

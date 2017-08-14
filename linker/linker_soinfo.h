@@ -407,7 +407,7 @@ struct soinfo {
   // vaddr in memory_vaddr().
   seginfo_list_t rand_addr_segments;
 
-  bool is_rand_addr_contiguous = false;
+  bool is_rand_addr_contiguous = true;
 
   // If all rand_addr segments are contigous, these fields store the begin and
   // end of the contigous file virtual address range. Only valid if
