@@ -887,13 +887,15 @@ static const ElfW(Sym)* dlsym_linear_lookup(android_namespace_t* ns,
   return s;
 }
 
+// Takes a loaded memory address and returns the soinfo containing that address,
+// if any. If pagerando is enabled, this address must not be the file vaddr +
+// load_bias for pagerando randomized segments, but rather their randomized load
+// address in memory.
 soinfo* find_containing_library(const void* p) {
   ElfW(Addr) address = reinterpret_cast<ElfW(Addr)>(p);
   for (soinfo* si = solist_get_head(); si != nullptr; si = si->next) {
     if ((address >= si->base && address - si->base < si->size)
         || si->find_rand_segment(address) != nullptr) {
-      // FIXME: this assumes that si->size also covers
-      // the virtual address ranges of all PF_RAND_ADDR segments.
       return si;
     }
   }
