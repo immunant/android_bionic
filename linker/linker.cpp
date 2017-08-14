@@ -2697,11 +2697,15 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
     ElfW(Word) type = ELFW(R_TYPE)(rel->r_info);
     ElfW(Word) sym = ELFW(R_SYM)(rel->r_info);
 
-    // FIXME: we assume that there are no relocation inside PF_RAND_ADDR
-    // segments. If there are, we'll get a SIGSEGV here. I don't really want to
-    // put a call to memory_vaddr here since we don't need to support text
-    // relocations for pagerando.
     ElfW(Addr) reloc = static_cast<ElfW(Addr)>(rel->r_offset + load_bias);
+    // If we have text relocations, we need to translate the reloc address
+    // taking into account pagerando randomized mappings since it could be in a
+    // pagerando segment.
+#if !defined(__LP64__)
+    if (has_text_relocations)
+      reloc = memory_vaddr(rel->r_offset);
+#endif
+
     ElfW(Addr) sym_addr = 0;
     const char* sym_name = nullptr;
     ElfW(Addr) addend = get_addend(rel, reloc);
