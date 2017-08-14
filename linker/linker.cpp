@@ -335,7 +335,8 @@ static void soinfo_free(soinfo* si) {
 
   // release all segments in rand_addr_segments
   for (const soinfo::SegmentInfo &seg_info : si->get_rand_addr_segments()) {
-    munmap(reinterpret_cast<void*>(seg_info.real_addr), seg_info.page_size);
+    munmap(reinterpret_cast<void*>(PAGE_START(seg_info.mem_addr)),
+           seg_info.page_size);
   }
 
   si->~soinfo();

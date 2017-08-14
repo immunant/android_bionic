@@ -373,13 +373,21 @@ struct soinfo {
 
  public:
   struct SegmentInfo {
-    ElfW(Addr) phdr_addr, real_addr;
-    ElfW(Word) real_size, page_size;
+    // Segment virtual address in file phdr
+    ElfW(Addr) phdr_addr;
+    // Randomized virtual address where the segment is loaded in memory
+    ElfW(Addr) mem_addr;
+    // Segment size in memory (may not be a multiple of page size)
+    ElfW(Word) mem_size;
+    // File mapping size (multiple of page size). Segment memory mappings start at
+    // PAGE_START(phdr_addr).
+    ElfW(Word) page_size;
+    // Segment phdr index
     size_t index;
 
-    SegmentInfo(ElfW(Addr) phdr_addr, ElfW(Addr) real_addr,
-                ElfW(Word) real_size, ElfW(Word) page_size, size_t index)
-      : phdr_addr(phdr_addr), real_addr(real_addr), real_size(real_size),
+    SegmentInfo(ElfW(Addr) phdr_addr, ElfW(Addr) mem_addr,
+                ElfW(Word) mem_size, ElfW(Word) page_size, size_t index)
+      : phdr_addr(phdr_addr), mem_addr(mem_addr), mem_size(mem_size),
         page_size(page_size), index(index) { }
   };
 
@@ -392,9 +400,9 @@ struct soinfo {
   // containing the given (loaded) virtual address, if any.
   SegmentInfo* find_rand_segment(ElfW(Addr) mem_vaddr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
-      ElfW(Addr) bin_start = seg_info.real_addr + PAGE_OFFSET(seg_info.phdr_addr);
+      ElfW(Addr) bin_start = seg_info.mem_addr + PAGE_OFFSET(seg_info.phdr_addr);
       if (mem_vaddr >= bin_start &&
-          (mem_vaddr - bin_start) < seg_info.real_size) {
+          (mem_vaddr - bin_start) < seg_info.mem_size) {
         return &seg_info;
       }
     }

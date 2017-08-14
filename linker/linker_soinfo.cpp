@@ -788,7 +788,7 @@ void soinfo::set_rand_addr_segments(const seginfo_list_t &segments) {
       break;
     }
     ++cur_index;
-    rand_addr_max = seg.phdr_addr + seg.real_size;
+    rand_addr_max = seg.phdr_addr + seg.mem_size;
   }
 }
 
@@ -806,12 +806,12 @@ ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
   auto I = std::lower_bound(
     rand_addr_segments.begin(), rand_addr_segments.end(),
     file_vaddr, [](const SegmentInfo &a, ElfW(Addr) addr) {
-      return ((a.phdr_addr + a.real_size) < addr);
+      return ((a.phdr_addr + a.mem_size) < addr);
     });
   if (I != rand_addr_segments.end() &&
       file_vaddr >= I->phdr_addr &&
-      (file_vaddr - I->phdr_addr) < I->real_size)
-    res = I->real_addr + (file_vaddr - PAGE_START(I->phdr_addr));
+      (file_vaddr - I->phdr_addr) < I->mem_size)
+    res = I->mem_addr + (file_vaddr - PAGE_START(I->phdr_addr));
 
   return res;
 }
