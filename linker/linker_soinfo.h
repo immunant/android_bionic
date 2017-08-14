@@ -403,7 +403,8 @@ struct soinfo {
 
  private:
   // rand_addr_segments is a vector of randomly mapped segments, sorted by their
-  // file virtual address.
+  // file virtual address for fast translation from file vaddr to randomized
+  // vaddr in memory_vaddr().
   seginfo_list_t rand_addr_segments;
 
   bool is_rand_addr_contiguous = false;
