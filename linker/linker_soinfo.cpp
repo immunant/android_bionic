@@ -297,7 +297,14 @@ static bool symbol_matches_soaddr(const ElfW(Sym)* sym, ElfW(Addr) soaddr) {
 }
 
 ElfW(Sym)* soinfo::gnu_addr_lookup(const void* addr) {
-  ElfW(Addr) soaddr = reinterpret_cast<ElfW(Addr)>(addr) - load_bias;
+  ElfW(Addr) soaddr = reinterpret_cast<ElfW(Addr)>(addr);
+  SegmentInfo* seg_info = find_rand_segment(soaddr);
+  if (seg_info == nullptr) {
+    soaddr -= load_bias;
+  } else {
+    soaddr -= seg_info->real_addr;
+    soaddr += seg_info->phdr_addr;
+  }
 
   for (size_t i = 0; i < gnu_nbucket_; ++i) {
     uint32_t n = gnu_bucket_[i];
@@ -318,7 +325,14 @@ ElfW(Sym)* soinfo::gnu_addr_lookup(const void* addr) {
 }
 
 ElfW(Sym)* soinfo::elf_addr_lookup(const void* addr) {
-  ElfW(Addr) soaddr = reinterpret_cast<ElfW(Addr)>(addr) - load_bias;
+  ElfW(Addr) soaddr = reinterpret_cast<ElfW(Addr)>(addr);
+  SegmentInfo* seg_info = find_rand_segment(soaddr);
+  if (seg_info == nullptr) {
+    soaddr -= load_bias;
+  } else {
+    soaddr -= seg_info->real_addr;
+    soaddr += seg_info->phdr_addr;
+  }
 
   // Search the library's symbol table for any defined symbol which
   // contains this address.
@@ -630,11 +644,13 @@ android_namespace_list_t& soinfo::get_secondary_namespaces() {
 }
 
 ElfW(Addr) soinfo::resolve_symbol_address(const ElfW(Sym)* s) const {
+  ElfW(Addr) mem_addr = memory_vaddr(s->st_value);
+
   if (ELF_ST_TYPE(s->st_info) == STT_GNU_IFUNC) {
-    return call_ifunc_resolver(s->st_value + load_bias);
+    return call_ifunc_resolver(mem_addr);
   }
 
-  return static_cast<ElfW(Addr)>(s->st_value + load_bias);
+  return static_cast<ElfW(Addr)>(mem_addr);
 }
 
 const char* soinfo::get_string(ElfW(Word) index) const {
