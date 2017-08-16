@@ -2698,14 +2698,9 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
     ElfW(Word) type = ELFW(R_TYPE)(rel->r_info);
     ElfW(Word) sym = ELFW(R_SYM)(rel->r_info);
 
-    ElfW(Addr) reloc = static_cast<ElfW(Addr)>(rel->r_offset + load_bias);
-    // If we have text relocations, we need to translate the reloc address
-    // taking into account pagerando randomized mappings since it could be in a
-    // pagerando segment.
-#if !defined(__LP64__)
-    if (has_text_relocations)
-      reloc = memory_vaddr(rel->r_offset);
-#endif
+    // We must translate the file virtual address to a randomized memory address
+    // to allow relocations in PF_RAND_ADDR segments.
+    ElfW(Addr) reloc = memory_vaddr(rel->r_offset);
 
     ElfW(Addr) sym_addr = 0;
     const char* sym_name = nullptr;
