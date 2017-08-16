@@ -797,6 +797,9 @@ static int _phdr_table_set_load_prot(const ElfW(Phdr)* phdr_table, size_t phdr_c
       continue;
     }
 
+    // Simply adding load_bias rather than handling PF_RAND_ADDR segments is
+    // safe here because we do not allow text relocations in libraries that are
+    // randomized with pagerando and thus use PF_RAND_ADDR segments.
     ElfW(Addr) seg_page_start = PAGE_START(phdr->p_vaddr) + load_bias;
     ElfW(Addr) seg_page_end   = PAGE_END(phdr->p_vaddr + phdr->p_memsz) + load_bias;
 

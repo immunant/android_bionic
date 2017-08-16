@@ -3581,6 +3581,12 @@ bool soinfo::link_image(const soinfo_list_t& global_group, const soinfo_list_t& 
                      "Enforced-for-API-level-23)", get_realpath());
       return false;
     }
+    // Fail if library uses pagerando
+    if (!rand_addr_segments.empty()) {
+      DL_ERR_AND_LOG("\"%s\" uses text relocations, which are incompatible with pagerando",
+                     get_realpath());
+      return false;
+    }
     // Make segments writable to allow text relocations to work properly. We will later call
     // phdr_table_protect_segments() after all of them are applied.
     DL_WARN_documented_change(__ANDROID_API_M__,
