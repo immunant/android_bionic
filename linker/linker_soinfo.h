@@ -375,20 +375,18 @@ struct soinfo {
   struct SegmentInfo {
     // Segment virtual address in file phdr
     ElfW(Addr) phdr_addr;
-    // Randomized virtual address where the segment is loaded in memory
+    // Randomized virtual address where the segment is loaded in memory. This
+    // value will have the same page offset as phdr_addr.
     ElfW(Addr) mem_addr;
     // Segment size in memory (may not be a multiple of page size)
     ElfW(Word) mem_size;
-    // File mapping size (multiple of page size). Segment memory mappings start at
-    // PAGE_START(phdr_addr).
-    ElfW(Word) page_size;
     // Segment phdr index
     size_t index;
 
     SegmentInfo(ElfW(Addr) phdr_addr, ElfW(Addr) mem_addr,
-                ElfW(Word) mem_size, ElfW(Word) page_size, size_t index)
+                ElfW(Word) mem_size, size_t index)
       : phdr_addr(phdr_addr), mem_addr(mem_addr), mem_size(mem_size),
-        page_size(page_size), index(index) { }
+        index(index) { }
   };
 
   typedef std::vector<SegmentInfo> seginfo_list_t;
@@ -400,9 +398,8 @@ struct soinfo {
   // containing the given (loaded) virtual address, if any.
   SegmentInfo* find_rand_segment(ElfW(Addr) mem_vaddr) {
     for (SegmentInfo &seg_info : rand_addr_segments) {
-      ElfW(Addr) bin_start = seg_info.mem_addr + PAGE_OFFSET(seg_info.phdr_addr);
-      if (mem_vaddr >= bin_start &&
-          (mem_vaddr - bin_start) < seg_info.mem_size) {
+      if (mem_vaddr >= seg_info.mem_addr &&
+          (mem_vaddr - seg_info.mem_addr) < seg_info.mem_size) {
         return &seg_info;
       }
     }

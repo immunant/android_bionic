@@ -825,7 +825,7 @@ ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
   if (I != rand_addr_segments.end() &&
       file_vaddr >= I->phdr_addr &&
       (file_vaddr - I->phdr_addr) < I->mem_size)
-    res = I->mem_addr + (file_vaddr - PAGE_START(I->phdr_addr));
+    res = I->mem_addr + (file_vaddr - I->phdr_addr);
 
   return res;
 }
