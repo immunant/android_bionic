@@ -302,8 +302,7 @@ ElfW(Sym)* soinfo::gnu_addr_lookup(const void* addr) {
   if (seg_info == nullptr) {
     soaddr -= load_bias;
   } else {
-    soaddr -= seg_info->real_addr;
-    soaddr += seg_info->phdr_addr;
+    soaddr += seg_info->phdr_addr - seg_info->mem_addr;
   }
 
   for (size_t i = 0; i < gnu_nbucket_; ++i) {
@@ -330,8 +329,7 @@ ElfW(Sym)* soinfo::elf_addr_lookup(const void* addr) {
   if (seg_info == nullptr) {
     soaddr -= load_bias;
   } else {
-    soaddr -= seg_info->real_addr;
-    soaddr += seg_info->phdr_addr;
+    soaddr += seg_info->phdr_addr - seg_info->mem_addr;
   }
 
   // Search the library's symbol table for any defined symbol which
