@@ -856,69 +856,6 @@ int phdr_table_unprotect_segments(const ElfW(Phdr)* phdr_table,
   return _phdr_table_set_load_prot(phdr_table, phdr_count, load_bias, PROT_WRITE);
 }
 
-/* Used internally by phdr_table_protect_gnu_relro and
- * phdr_table_unprotect_gnu_relro.
- */
-static int _phdr_table_set_gnu_relro_prot(const ElfW(Phdr)* phdr_table, size_t phdr_count,
-                                          ElfW(Addr) load_bias, int prot_flags) {
-  const ElfW(Phdr)* phdr = phdr_table;
-  const ElfW(Phdr)* phdr_limit = phdr + phdr_count;
-
-  for (phdr = phdr_table; phdr < phdr_limit; phdr++) {
-    if (phdr->p_type != PT_GNU_RELRO) {
-      continue;
-    }
-
-    // Tricky: what happens when the relro segment does not start
-    // or end at page boundaries? We're going to be over-protective
-    // here and put every page touched by the segment as read-only.
-
-    // This seems to match Ian Lance Taylor's description of the
-    // feature at http://www.airs.com/blog/archives/189.
-
-    //    Extract:
-    //       Note that the current dynamic linker code will only work
-    //       correctly if the PT_GNU_RELRO segment starts on a page
-    //       boundary. This is because the dynamic linker rounds the
-    //       p_vaddr field down to the previous page boundary. If
-    //       there is anything on the page which should not be read-only,
-    //       the program is likely to fail at runtime. So in effect the
-    //       linker must only emit a PT_GNU_RELRO segment if it ensures
-    //       that it starts on a page boundary.
-    ElfW(Addr) seg_page_start = PAGE_START(phdr->p_vaddr) + load_bias;
-    ElfW(Addr) seg_page_end   = PAGE_END(phdr->p_vaddr + phdr->p_memsz) + load_bias;
-
-    int ret = mprotect(reinterpret_cast<void*>(seg_page_start),
-                       seg_page_end - seg_page_start,
-                       prot_flags);
-    if (ret < 0) {
-      return -1;
-    }
-  }
-  return 0;
-}
-
-/* Apply GNU relro protection if specified by the program header. This will
- * turn some of the pages of a writable PT_LOAD segment to read-only, as
- * specified by one or more PT_GNU_RELRO segments. This must be always
- * performed after relocations.
- *
- * The areas typically covered are .got and .data.rel.ro, these are
- * read-only from the program's POV, but contain absolute addresses
- * that need to be relocated before use.
- *
- * Input:
- *   phdr_table  -> program header table
- *   phdr_count  -> number of entries in tables
- *   load_bias   -> load bias
- * Return:
- *   0 on error, -1 on failure (error code in errno).
- */
-int phdr_table_protect_gnu_relro(const ElfW(Phdr)* phdr_table,
-                                 size_t phdr_count, ElfW(Addr) load_bias) {
-  return _phdr_table_set_gnu_relro_prot(phdr_table, phdr_count, load_bias, PROT_READ);
-}
-
 /* Serialize the GNU relro segments to the given file descriptor. This can be
  * performed after relocations to allow another process to later share the
  * relocated segment, if it was loaded at the same address.

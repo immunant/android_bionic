@@ -3716,11 +3716,58 @@ bool soinfo::link_image(const soinfo_list_t& global_group, const soinfo_list_t& 
   return true;
 }
 
+/* Apply GNU relro protection if specified by the program header. This will
+ * turn some of the pages of a writable PT_LOAD segment to read-only, as
+ * specified by one or more PT_GNU_RELRO segments. This must be always
+ * performed after relocations.
+ *
+ * The areas typically covered are .got and .data.rel.ro, these are
+ * read-only from the program's POV, but contain absolute addresses
+ * that need to be relocated before use.
+ *
+ * Return:
+ *   true on success, false on failure
+ */
 bool soinfo::protect_relro() {
-  if (phdr_table_protect_gnu_relro(phdr, phnum, load_bias) < 0) {
-    DL_ERR("can't enable GNU RELRO protection for \"%s\": %s",
-           get_realpath(), strerror(errno));
-    return false;
+  // Protecting relro segments when using pagerando requires access to
+  // rand_addr_segments, so the implementation needs to be here rather than in
+  // linker_phdr.
+  const ElfW(Phdr)* cur_phdr = this->phdr;
+  const ElfW(Phdr)* phdr_limit = this->phdr + phnum;
+
+  for (; cur_phdr < phdr_limit; cur_phdr++) {
+    if (cur_phdr->p_type != PT_GNU_RELRO) {
+      continue;
+    }
+
+    // Tricky: what happens when the relro segment does not start
+    // or end at page boundaries? We're going to be over-protective
+    // here and put every page touched by the segment as read-only.
+
+    // This seems to match Ian Lance Taylor's description of the
+    // feature at http://www.airs.com/blog/archives/189.
+
+    //    Extract:
+    //       Note that the current dynamic linker code will only work
+    //       correctly if the PT_GNU_RELRO segment starts on a page
+    //       boundary. This is because the dynamic linker rounds the
+    //       p_vaddr field down to the previous page boundary. If
+    //       there is anything on the page which should not be read-only,
+    //       the program is likely to fail at runtime. So in effect the
+    //       linker must only emit a PT_GNU_RELRO segment if it ensures
+    //       that it starts on a page boundary.
+    ElfW(Addr) load_addr = memory_vaddr(cur_phdr->p_vaddr);
+    ElfW(Addr) seg_page_start = PAGE_START(load_addr);
+    ElfW(Addr) seg_page_end   = PAGE_END(load_addr + cur_phdr->p_memsz);
+
+    int ret = mprotect(reinterpret_cast<void*>(seg_page_start),
+                       seg_page_end - seg_page_start,
+                       PROT_READ);
+    if (ret < 0) {
+      DL_ERR("can't enable GNU RELRO protection for \"%s\": %s",
+             get_realpath(), strerror(errno));
+      return false;
+    }
   }
   return true;
 }
