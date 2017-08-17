@@ -3736,7 +3736,10 @@ bool soinfo::protect_relro() {
   const ElfW(Phdr)* phdr_limit = this->phdr + phnum;
 
   for (; cur_phdr < phdr_limit; cur_phdr++) {
-    if (cur_phdr->p_type != PT_GNU_RELRO) {
+    // Protect RELRO and writable PF_RAND_ADDR segments
+    bool is_pot_flags =
+      (cur_phdr->p_flags & (PF_RAND_ADDR | PF_W)) == (PF_RAND_ADDR | PF_W);
+    if (cur_phdr->p_type != PT_GNU_RELRO && !is_pot_flags) {
       continue;
     }
 
