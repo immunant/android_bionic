@@ -621,6 +621,16 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
   return true;
 }
 
+// Tentative pagerando mapping ranges. Only implemented for ARM, AArch64. These
+// guards must match the guards for picking a random address below.
+#if defined(__arm__)
+static const unsigned long RAND_ADDR_LOW  = 0xb0000000;
+static const unsigned long RAND_ADDR_HIGH = 0xb6000000;
+#elif defined(__aarch64__)
+static const unsigned long RAND_ADDR_LOW  = 0x1000000000;
+static const unsigned long RAND_ADDR_HIGH = 0x5000000000;
+#endif
+
 bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
   for (size_t i = 0; i < phdr_num_; ++i) {
     const ElfW(Phdr)* phdr = &phdr_table_[i];
@@ -644,17 +654,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
     // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
     // this results in little to no actual randomness. We try to fix this here.
     if (random_start) {
-#if defined(__arm__)
-      // Tentatively using 0xb0000000-0xb6000000 as the pagerando range
-      unsigned long low  = 0xb0000000;
-      unsigned long high = 0xb6000000;
-#elif defined(__aarch64__)
-      // Tentatively using 0x1000000000-0x5000000000 as the pagerando range
-      unsigned long low  = 0x1000000000;
-      unsigned long high = 0x5000000000;
-#endif
-
-      ElfW(Addr) range = high-low;
+      ElfW(Addr) range = RAND_ADDR_HIGH - RAND_ADDR_LOW;
 
       // 2^N % x == (2^N - x) % x where N = 32 or 64
       ElfW(Addr) min = -range % range;
@@ -667,8 +667,8 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
         // value on 64-bit platforms.
         arc4random_buf(&random_start_address, sizeof(ElfW(Addr)));
       } while (random_start_address < min);
-      // Map that random number back to the range [low, high)
-      random_start_address = random_start_address % range + low;
+      // Map that random number back to the range [RAND_ADDR_LOW, RAND_ADDR_HIGH)
+      random_start_address = random_start_address % range + RAND_ADDR_LOW;
     }
 #endif // defined(__aarch64__) || defined(__arm__)
 
