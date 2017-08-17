@@ -778,7 +778,6 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, zeromap, zeromap_size, ".bss");
     }
   }
-
   return true;
 }
 
