@@ -132,6 +132,27 @@ static int GetTargetElfMachine() {
   The load_bias must be added to any p_vaddr value read from the ELF file to
   determine the corresponding memory address.
 
+
+  PAGERANDO
+
+  Pagerando is a convention that allows some segments to be loaded at random
+  offsets relative to the rest of the binary. Pagerando creates finer
+  granularity address randomization than ASLR, while still allowing memory
+  sharing of libraries between processes. Normal segments are loaded as detailed
+  above. Segments marked with PF_RAND_ADDR in p_flags will be loaded at a
+  randomly chosen, per-segment base address. If phdr1 is a pagerando segment, it
+  will be loaded at:
+
+       phdr1_load_address = PAGE_START(random_address1)
+
+  where random_address1 is a randomly chosen address in the range
+  [RAND_ADDR_LOW, RAND_ADDR_HIGH), independently generated for this segment.
+
+  Since we cannot calculate the address of symbols in PF_RAND_ADDR segments by
+  adding a fixed load_bias, we need to keep metadata on where these segments are
+  located. Pagerando segment mappings are stored in the rand_addr_segments
+  vector for later use in resolving addresses.
+
  **/
 
 #define MAYBE_MAP_FLAG(x, from, to)  (((x) & (from)) ? (to) : 0)
