@@ -34,8 +34,6 @@
 
 #include "linker_namespaces.h"
 
-#include "private/bionic_page.h"
-
 #define FLAG_LINKED           0x00000001
 #define FLAG_EXE              0x00000004 // The main executable
 #define FLAG_LINKER           0x00000010 // The linker itself
