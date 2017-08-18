@@ -135,7 +135,7 @@ static int GetTargetElfMachine() {
 
   PAGERANDO
 
-  Pagerando is a convention that allows some segments to be loaded at random
+  Pagerando is an ABI extension that allows some segments to be loaded at random
   offsets relative to the rest of the binary. Pagerando creates finer
   granularity address randomization than ASLR, while still allowing memory
   sharing of libraries between processes. Normal segments are loaded as detailed
