@@ -392,22 +392,16 @@ struct soinfo {
   void set_rand_addr_segments(const seginfo_list_t &segments);
   const seginfo_list_t& get_rand_addr_segments() const;
 
-  // Find and return segment info for pagerando randomly mapped segment
-  // containing the given (loaded) virtual address, if any.
-  SegmentInfo* find_rand_segment(ElfW(Addr) mem_vaddr) {
-    for (SegmentInfo &seg_info : rand_addr_segments) {
-      if (mem_vaddr >= seg_info.mem_addr &&
-          (mem_vaddr - seg_info.mem_addr) < seg_info.mem_size) {
-        return &seg_info;
-      }
-    }
-    return nullptr;
+  // Return whether the given in-memory, potentially randomized virtual address
+  // is located in a PF_RAND_ADDR segment.
+  bool is_rand_segment(ElfW(Addr) vaddr) const {
+    return find_rand_segment(vaddr) != nullptr;
   }
 
  private:
   // rand_addr_segments is a vector of randomly mapped segments, sorted by their
   // file virtual address for fast translation from file vaddr to randomized
-  // vaddr in memory_vaddr().
+  // vaddr in file_to_mem_vaddr().
   seginfo_list_t rand_addr_segments;
 
   bool is_rand_addr_contiguous = true;
@@ -418,11 +412,19 @@ struct soinfo {
   ElfW(Addr) rand_addr_min = 0;
   ElfW(Addr) rand_addr_max = 0;
 
+  // Find and return segment info for pagerando randomly mapped segment
+  // containing the given (loaded) virtual address, if any.
+  const SegmentInfo* find_rand_segment(ElfW(Addr) mem_vaddr) const;
+
   // Translate the given file virtual address to its corresponding virtual
   // address in memory. For segments loaded with basic ASLR, this is just
   // file_vaddr+load_bias, For segments randomly mapped with pagerando this
   // function looks up the correct randomized virtual address for the target.
-  ElfW(Addr) memory_vaddr(ElfW(Addr) file_vaddr) const;
+  ElfW(Addr) file_to_mem_vaddr(ElfW(Addr) file_vaddr) const;
+
+  // Translate the given in-memory virtual address to its corresponding file
+  // virtual address.
+  ElfW(Addr) mem_to_file_vaddr(ElfW(Addr) mem_vaddr) const;
 };
 
 // This function is used by dlvsym() to calculate hash of sym_ver

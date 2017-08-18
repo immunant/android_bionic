@@ -380,7 +380,7 @@ static bool realpath_fd(int fd, std::string* realpath) {
 _Unwind_Ptr do_dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount) {
   for (soinfo* si = solist_get_head(); si != 0; si = si->next) {
     if (((pc >= si->base) && (pc < (si->base + si->size))) ||
-        si->find_rand_segment(pc) != nullptr) {
+        si->is_rand_segment(pc)) {
         *pcount = si->ARM_exidx_count;
         return reinterpret_cast<_Unwind_Ptr>(si->ARM_exidx);
     }
@@ -896,8 +896,8 @@ static const ElfW(Sym)* dlsym_linear_lookup(android_namespace_t* ns,
 soinfo* find_containing_library(const void* p) {
   ElfW(Addr) address = reinterpret_cast<ElfW(Addr)>(p);
   for (soinfo* si = solist_get_head(); si != nullptr; si = si->next) {
-    if ((address >= si->base && address - si->base < si->size)
-        || si->find_rand_segment(address) != nullptr) {
+    if ((address >= si->base && address - si->base < si->size) ||
+        si->is_rand_segment(address)) {
       return si;
     }
   }
@@ -2701,7 +2701,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
 
     // We must translate the file virtual address to a randomized memory address
     // to allow relocations in PF_RAND_ADDR segments.
-    ElfW(Addr) reloc = memory_vaddr(rel->r_offset);
+    ElfW(Addr) reloc = file_to_mem_vaddr(rel->r_offset);
 
     ElfW(Addr) sym_addr = 0;
     const char* sym_name = nullptr;
@@ -2840,7 +2840,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         count_relocation(kRelocRelative);
         MARK(rel->r_offset);
         {
-          ElfW(Addr) target = memory_vaddr(addend);
+          ElfW(Addr) target = file_to_mem_vaddr(addend);
           TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p\n",
                      reinterpret_cast<void*>(reloc),
                      reinterpret_cast<void*>(target));
@@ -2851,7 +2851,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         count_relocation(kRelocRelative);
         MARK(rel->r_offset);
         {
-          ElfW(Addr) target = memory_vaddr(addend);
+          ElfW(Addr) target = file_to_mem_vaddr(addend);
           TRACE_TYPE(RELO, "RELO IRELATIVE %16p <- %16p\n",
                      reinterpret_cast<void*>(reloc),
                      reinterpret_cast<void*>(target));
@@ -3759,7 +3759,7 @@ bool soinfo::protect_relro() {
     //       the program is likely to fail at runtime. So in effect the
     //       linker must only emit a PT_GNU_RELRO segment if it ensures
     //       that it starts on a page boundary.
-    ElfW(Addr) load_addr = memory_vaddr(cur_phdr->p_vaddr);
+    ElfW(Addr) load_addr = file_to_mem_vaddr(cur_phdr->p_vaddr);
     ElfW(Addr) seg_page_start = PAGE_START(load_addr);
     ElfW(Addr) seg_page_end   = PAGE_END(load_addr + cur_phdr->p_memsz);
 

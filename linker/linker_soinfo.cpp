@@ -297,13 +297,7 @@ static bool symbol_matches_soaddr(const ElfW(Sym)* sym, ElfW(Addr) soaddr) {
 }
 
 ElfW(Sym)* soinfo::gnu_addr_lookup(const void* addr) {
-  ElfW(Addr) soaddr = reinterpret_cast<ElfW(Addr)>(addr);
-  SegmentInfo* seg_info = find_rand_segment(soaddr);
-  if (seg_info == nullptr) {
-    soaddr -= load_bias;
-  } else {
-    soaddr += seg_info->phdr_addr - seg_info->mem_addr;
-  }
+  ElfW(Addr) soaddr = mem_to_file_vaddr(reinterpret_cast<ElfW(Addr)>(addr));
 
   for (size_t i = 0; i < gnu_nbucket_; ++i) {
     uint32_t n = gnu_bucket_[i];
@@ -324,13 +318,7 @@ ElfW(Sym)* soinfo::gnu_addr_lookup(const void* addr) {
 }
 
 ElfW(Sym)* soinfo::elf_addr_lookup(const void* addr) {
-  ElfW(Addr) soaddr = reinterpret_cast<ElfW(Addr)>(addr);
-  SegmentInfo* seg_info = find_rand_segment(soaddr);
-  if (seg_info == nullptr) {
-    soaddr -= load_bias;
-  } else {
-    soaddr += seg_info->phdr_addr - seg_info->mem_addr;
-  }
+  ElfW(Addr) soaddr = mem_to_file_vaddr(reinterpret_cast<ElfW(Addr)>(addr));
 
   // Search the library's symbol table for any defined symbol which
   // contains this address.
@@ -642,7 +630,7 @@ android_namespace_list_t& soinfo::get_secondary_namespaces() {
 }
 
 ElfW(Addr) soinfo::resolve_symbol_address(const ElfW(Sym)* s) const {
-  ElfW(Addr) mem_addr = memory_vaddr(s->st_value);
+  ElfW(Addr) mem_addr = file_to_mem_vaddr(s->st_value);
 
   if (ELF_ST_TYPE(s->st_info) == STT_GNU_IFUNC) {
     return call_ifunc_resolver(mem_addr);
@@ -810,7 +798,17 @@ const soinfo::seginfo_list_t& soinfo::get_rand_addr_segments() const {
   return rand_addr_segments;
 }
 
-ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
+const soinfo::SegmentInfo* soinfo::find_rand_segment(ElfW(Addr) mem_vaddr) const {
+  for (const SegmentInfo &seg_info : rand_addr_segments) {
+    if (mem_vaddr >= seg_info.mem_addr &&
+        (mem_vaddr - seg_info.mem_addr) < seg_info.mem_size) {
+      return &seg_info;
+    }
+  }
+  return nullptr;
+}
+
+ElfW(Addr) soinfo::file_to_mem_vaddr(ElfW(Addr) file_vaddr) const {
   ElfW(Addr) res = file_vaddr + load_bias;
   if (is_rand_addr_contiguous &&
       (file_vaddr < rand_addr_min ||
@@ -828,6 +826,15 @@ ElfW(Addr) soinfo::memory_vaddr(ElfW(Addr) file_vaddr) const {
     res = I->mem_addr + (file_vaddr - I->phdr_addr);
 
   return res;
+}
+
+ElfW(Addr) soinfo::mem_to_file_vaddr(ElfW(Addr) file_vaddr) const {
+  const SegmentInfo* seg_info = find_rand_segment(file_vaddr);
+  if (seg_info == nullptr) {
+    return file_vaddr - load_bias;
+  } else {
+    return file_vaddr - seg_info->mem_addr + seg_info->phdr_addr;
+  }
 }
 
 // TODO(dimitry): Move SymbolName methods to a separate file.
