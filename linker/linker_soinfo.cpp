@@ -818,7 +818,7 @@ ElfW(Addr) soinfo::file_to_mem_vaddr(ElfW(Addr) file_vaddr) const {
   auto I = std::lower_bound(
     rand_addr_segments.begin(), rand_addr_segments.end(),
     file_vaddr, [](const SegmentInfo &a, ElfW(Addr) addr) {
-      return ((a.phdr_addr + a.mem_size) < addr);
+      return ((a.phdr_addr + a.mem_size) <= addr);
     });
   if (I != rand_addr_segments.end() &&
       file_vaddr >= I->phdr_addr &&
