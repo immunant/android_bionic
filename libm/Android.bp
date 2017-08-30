@@ -296,6 +296,13 @@ cc_library {
             pack_relocations: false,
             ldflags: ["-Wl,--hash-style=both"],
             version_script: "libm.arm.map",
+
+            // Prevent inlining of floating point status getter/setters. With
+            // LTO these functions may get inlined, but Clang doesn't track
+            // floating-point status register dependencies between
+            // floating-point intrinsics and read/writes to the floating point
+            // status register. See https://bugs.llvm.org/show_bug.cgi?id=6050
+            cflags: ["-fno-inline"],
         },
 
         arm64: {
