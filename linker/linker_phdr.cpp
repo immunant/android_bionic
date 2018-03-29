@@ -661,6 +661,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
     }
 
     bool random_start = false;
+    ElfW(Addr) random_start_address = 0;
 #if defined(__aarch64__) || defined(__arm__)
     // Randomly map PF_RAND_ADDR segments, but only if the client is not
     // overriding with a fixed load address
@@ -670,7 +671,6 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
            extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR ||
            extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS)));
 
-    ElfW(Addr) random_start_address = 0;
     // Linux provides 8 bits of entropy for mmaps (see
     // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
     // this results in little to no actual randomness. We try to fix this here.
