@@ -40,6 +40,7 @@
 #include "linker_globals.h"
 #include "linker_debug.h"
 #include "linker_utils.h"
+#include "linker_pagerando.h"
 
 #include "private/bionic_prctl.h"
 #include "private/CFIShadow.h" // For kLibraryAlignment
@@ -642,16 +643,6 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
   return true;
 }
 
-// Tentative pagerando mapping ranges. Only implemented for ARM, AArch64. These
-// guards must match the guards for picking a random address below.
-#if defined(__arm__)
-static const unsigned long RAND_ADDR_LOW  = 0xb0000000;
-static const unsigned long RAND_ADDR_HIGH = 0xb6000000;
-#elif defined(__aarch64__)
-static const unsigned long RAND_ADDR_LOW  = 0x1000000000;
-static const unsigned long RAND_ADDR_HIGH = 0x5000000000;
-#endif
-
 bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
   for (size_t i = 0; i < phdr_num_; ++i) {
     const ElfW(Phdr)* phdr = &phdr_table_[i];
@@ -660,42 +651,52 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       continue;
     }
 
-    bool random_start = false;
-    ElfW(Addr) random_start_address = 0;
-#if defined(__aarch64__) || defined(__arm__)
-    // Randomly map PF_RAND_ADDR segments, but only if the client is not
-    // overriding with a fixed load address
-    random_start = (phdr->p_flags & PF_RAND_ADDR) != 0 &&
-      !((extinfo != nullptr && (
-           extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS ||
-           extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR ||
-           extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS)));
-
-    // Linux provides 8 bits of entropy for mmaps (see
-    // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
-    // this results in little to no actual randomness. We try to fix this here.
-    if (random_start) {
-      ElfW(Addr) range = RAND_ADDR_HIGH - RAND_ADDR_LOW;
-
-      // 2^N % x == (2^N - x) % x where N = 32 or 64
-      ElfW(Addr) min = -range % range;
-
-      // Calculate a random value in the range [2^N % range, 2^N) where N = 32
-      // or 64 depending on the target address size.
-      do {
-        // This is actually a ChaCha RNG seeded with getentropy(), so is
-        // reasonable for secure randomness. We use random_buf to get a 64-bit
-        // value on 64-bit platforms.
-        arc4random_buf(&random_start_address, sizeof(ElfW(Addr)));
-      } while (random_start_address < min);
-      // Map that random number back to the range [RAND_ADDR_LOW, RAND_ADDR_HIGH)
-      random_start_address = random_start_address % range + RAND_ADDR_LOW;
-    }
-#endif // defined(__aarch64__) || defined(__arm__)
+    bool fixed_mapping = true;
+    bool needs_rand_entry = false;
 
     // Segment addresses in memory.
 
-    ElfW(Addr) seg_start = random_start ? random_start_address : (phdr->p_vaddr + load_bias_);
+    ElfW(Addr) seg_start = (phdr->p_vaddr + load_bias_);
+
+#if defined(__aarch64__) || defined(__arm__)
+    // Randomly map PF_RAND_ADDR segments, but only if the client is not
+    // overriding with a fixed load address
+    if ((phdr->p_flags & PF_RAND_ADDR) != 0 &&
+        !((extinfo != nullptr && (
+             extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS ||
+             extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR ||
+             extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS)))) {
+
+      needs_rand_entry = true;
+
+      // If we are mapping a non-executable pagerando segment, it must be a POT
+      // page. We should map it into the correct place in the global POT.
+      if ((phdr->p_flags & PF_X) == 0) {
+        size_t library_pot_index = get_pot_index(resolve_soname(name_));
+        if (library_pot_index == kPOTIndexError) {
+          DL_ERR_AND_LOG("Couldn't get POT index for library %s", name_.c_str());
+          fixed_mapping = false;
+          seg_start = get_random_address();
+        } else {
+          // We want a fixed mapping for this segment and we can assume there
+          // won't be a collision since we've already reserved space.
+          seg_start = get_pot_base();
+          if (!seg_start) {
+            DL_ERR_AND_LOG("couldn't reserve space for the POT: %s", strerror(errno));
+            return false;
+          }
+          seg_start += (library_pot_index * PAGE_SIZE);
+        }
+      } else {
+        // Linux provides 8 bits of entropy for mmaps (see
+        // arch/arm/mm/mmap.c). However, after the address space is somewhat full,
+        // this results in little to no actual randomness. We try to fix this here.
+        fixed_mapping = false;
+        seg_start = get_random_address();
+      }
+    }
+#endif // defined(__aarch64__) || defined(__arm__)
+
     ElfW(Addr) seg_end   = seg_start + phdr->p_memsz;
 
     ElfW(Addr) seg_page_start = PAGE_START(seg_start);
@@ -742,7 +743,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       void* seg_addr = mmap64(reinterpret_cast<void*>(seg_page_start),
                             file_length,
                             prot,
-                            MAP_PRIVATE | (random_start ? 0 : MAP_FIXED),
+                              MAP_PRIVATE | (fixed_mapping ? MAP_FIXED : 0),
                             fd_,
                             file_offset_ + file_page_start);
       if (seg_addr == MAP_FAILED) {
@@ -750,7 +751,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
         return false;
       }
 
-      if (random_start) {
+      if (!fixed_mapping) {
         // We are using a randomized segment load address, so recompute the
         // other segment parameters based on the selected random
         // address. seg_addr will be a multiple of page size.
@@ -761,7 +762,9 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
         seg_page_end   = PAGE_END(seg_end);
 
         seg_file_end   = seg_start + phdr->p_filesz;
+      }
 
+      if (needs_rand_entry) {
         // Record the segment in soinfo's random segment list
         rand_addr_segments_.emplace_back(phdr->p_vaddr,
                                          seg_start,

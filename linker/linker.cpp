@@ -152,20 +152,6 @@ static bool file_exists(const char* path) {
   return S_ISREG(s.st_mode);
 }
 
-static std::string resolve_soname(const std::string& name) {
-  // We assume that soname equals to basename here
-
-  // TODO(dimitry): consider having honest absolute-path -> soname resolution
-  // note that since we might end up refusing to load this library because
-  // it is not in shared libs list we need to get the soname without actually loading
-  // the library.
-  //
-  // On the other hand there are several places where we already assume that
-  // soname == basename in particular for any not-loaded library mentioned
-  // in DT_NEEDED list.
-  return basename(name.c_str());
-}
-
 static bool maybe_accessible_via_namespace_links(android_namespace_t* ns, const char* name) {
   std::string soname = resolve_soname(name);
   for (auto& ns_link : ns->linked_namespaces()) {

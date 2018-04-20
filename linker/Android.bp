@@ -83,6 +83,7 @@ cc_binary {
         "linker_namespaces.cpp",
         "linker_logger.cpp",
         "linker_mapped_file_fragment.cpp",
+        "linker_pagerando.cpp",
         "linker_phdr.cpp",
         "linker_sdk_versions.cpp",
         "linker_soinfo.cpp",

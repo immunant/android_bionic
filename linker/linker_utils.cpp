@@ -244,3 +244,17 @@ bool is_init() {
   static bool ret = (getpid() == 1);
   return ret;
 }
+
+std::string resolve_soname(const std::string& name) {
+  // We assume that soname equals to basename here
+
+  // TODO(dimitry): consider having honest absolute-path -> soname resolution
+  // note that since we might end up refusing to load this library because
+  // it is not in shared libs list we need to get the soname without actually loading
+  // the library.
+  //
+  // On the other hand there are several places where we already assume that
+  // soname == basename in particular for any not-loaded library mentioned
+  // in DT_NEEDED list.
+  return basename(name.c_str());
+}
