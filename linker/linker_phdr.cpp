@@ -653,6 +653,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
 
     bool fixed_mapping = true;
     bool needs_rand_entry = false;
+    bool is_unified_pot_page = false;
 
     // Segment addresses in memory.
 
@@ -672,12 +673,8 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       // If we are mapping a non-executable pagerando segment, it must be a POT
       // page. We should map it into the correct place in the global POT.
       if ((phdr->p_flags & PF_X) == 0) {
-        size_t library_pot_index = get_pot_index(resolve_soname(name_));
-        if (library_pot_index == kPOTIndexError) {
-          DL_ERR_AND_LOG("Couldn't get POT index for library %s", name_.c_str());
-          fixed_mapping = false;
-          seg_start = get_random_address();
-        } else {
+        size_t pot_index_ = get_pot_index(resolve_soname(name_));
+        if (pot_index_ != kPOTIndexError) {
           // We want a fixed mapping for this segment and we can assume there
           // won't be a collision since we've already reserved space.
           seg_start = get_pot_base();
@@ -685,7 +682,19 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
             DL_ERR_AND_LOG("couldn't reserve space for the POT: %s", strerror(errno));
             return false;
           }
-          seg_start += (library_pot_index * PAGE_SIZE);
+          seg_start += (pot_index_ * PAGE_SIZE);
+
+          // Adjust the segment start to be aligned with p_vaddr. We will
+          // re-align this to a single page after seg_end, etc. are computed.
+          if (PAGE_OFFSET(phdr->p_vaddr) != 0) {
+            seg_start -= PAGE_SIZE - PAGE_OFFSET(phdr->p_vaddr);
+          }
+          is_unified_pot_page = true;
+        } else {
+          DL_ERR_AND_LOG("Couldn't map POT for library %s into unified POT", name_.c_str());
+          pot_index_ = kPOTIndexError;
+          fixed_mapping = false;
+          seg_start = get_random_address();
         }
       } else {
         // Linux provides 8 bits of entropy for mmaps (see
@@ -696,6 +705,8 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       }
     }
 #endif // defined(__aarch64__) || defined(__arm__)
+
+    ElfW(Addr) vaddr = phdr->p_vaddr;
 
     ElfW(Addr) seg_end   = seg_start + phdr->p_memsz;
 
@@ -710,6 +721,30 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
 
     ElfW(Addr) file_page_start = PAGE_START(file_start);
     ElfW(Addr) file_length = file_end - file_page_start;
+
+    if (is_unified_pot_page && file_page_start < file_start) {
+      // The POT is guaranteed to be 4K page-aligned in the file, but the linker
+      // may not always align the beginning of the PT_LOAD segment for the POT
+      // to that page. We should only map the page containing the POT contents,
+      // rather than the whole p_offset+p_filesz range. We need to align the
+      // beginning of the mapping to a page, truncating the beginning of the
+      // mapping.
+      vaddr = PAGE_START(vaddr) + PAGE_SIZE;
+      seg_page_start += PAGE_SIZE;
+      seg_start = seg_page_start;
+      file_page_start += PAGE_SIZE;
+      file_start = file_page_start;
+      file_length -= PAGE_SIZE;
+      if (file_length < 0) {
+        DL_ERR("invalid ELF file \"%s\" load segment[%zd]:"
+               " PAGE_OFFSET(p_offset (%p)) != 0 &&"
+               " p_offset (%p) + p_filesz (%p) - PAGE_SIZE < 0",
+               name_.c_str(), i, reinterpret_cast<void*>(phdr->p_offset),
+               reinterpret_cast<void*>(phdr->p_offset),
+               reinterpret_cast<void*>(phdr->p_filesz));
+        return false;
+      }
+    }
 
     if (file_size_ <= 0) {
       DL_ERR("\"%s\" invalid file size: %" PRId64, name_.c_str(), file_size_);
@@ -766,9 +801,9 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
 
       if (needs_rand_entry) {
         // Record the segment in soinfo's random segment list
-        rand_addr_segments_.emplace_back(phdr->p_vaddr,
+        rand_addr_segments_.emplace_back(vaddr,
                                          seg_start,
-                                         phdr->p_memsz,
+                                         seg_end - seg_start,
                                          i);
       }
     }

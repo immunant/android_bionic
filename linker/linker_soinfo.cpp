@@ -39,6 +39,7 @@
 #include "linker_debug.h"
 #include "linker_globals.h"
 #include "linker_logger.h"
+#include "linker_pagerando.h"
 #include "linker_utils.h"
 #include "private/bionic_page.h"
 
@@ -630,6 +631,10 @@ android_namespace_list_t& soinfo::get_secondary_namespaces() {
 }
 
 ElfW(Addr) soinfo::resolve_symbol_address(const ElfW(Sym)* s) const {
+  if (s == pot_symbol_) {
+    return get_pot_base();
+  }
+
   ElfW(Addr) mem_addr = file_to_mem_vaddr(s->st_value);
 
   if (ELF_ST_TYPE(s->st_info) == STT_GNU_IFUNC) {
@@ -835,6 +840,11 @@ ElfW(Addr) soinfo::mem_to_file_vaddr(ElfW(Addr) file_vaddr) const {
   } else {
     return file_vaddr - seg_info->mem_addr + seg_info->phdr_addr;
   }
+}
+
+void soinfo::find_pot_symbol() {
+  SymbolName name("_PAGE_OFFSET_TABLE_");
+  find_symbol_by_name(name, nullptr, &pot_symbol_);
 }
 
 // TODO(dimitry): Move SymbolName methods to a separate file.

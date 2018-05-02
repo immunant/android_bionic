@@ -62,6 +62,7 @@
 #include "linker_main.h"
 #include "linker_namespaces.h"
 #include "linker_sleb128.h"
+#include "linker_pagerando.h"
 #include "linker_phdr.h"
 #include "linker_relocs.h"
 #include "linker_reloc_iterators.h"
@@ -650,6 +651,7 @@ class LoadTask {
     si_->phnum = elf_reader.phdr_count();
     si_->phdr = elf_reader.loaded_phdr();
     si_->set_rand_addr_segments(elf_reader.rand_addr_segments());
+    si_->pot_index = elf_reader.pot_index();
 
     return true;
   }
@@ -2827,9 +2829,10 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         MARK(rel->r_offset);
         {
           ElfW(Addr) target = file_to_mem_vaddr(addend);
-          TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p\n",
+          TRACE_TYPE(RELO, "RELO RELATIVE %16p <- %16p (%16p)\n",
                      reinterpret_cast<void*>(reloc),
-                     reinterpret_cast<void*>(target));
+                     reinterpret_cast<void*>(target),
+                     reinterpret_cast<void*>(addend));
           *reinterpret_cast<ElfW(Addr)*>(reloc) = target;
         }
         break;
@@ -3721,9 +3724,21 @@ bool soinfo::protect_relro() {
   const ElfW(Phdr)* cur_phdr = this->phdr;
   const ElfW(Phdr)* phdr_limit = this->phdr + phnum;
 
+  // Protect unified POT page, if applicable
+  if (this->pot_index != kPOTIndexError) {
+    int ret = mprotect(reinterpret_cast<void*>(get_pot_base() + this->pot_index * PAGE_SIZE),
+                       PAGE_SIZE, PROT_READ);
+    if (ret < 0) {
+      DL_ERR("can't enable RELRO protection for POT: %s",
+             strerror(errno));
+      return false;
+    }
+  }
+
   for (; cur_phdr < phdr_limit; cur_phdr++) {
-    // Protect RELRO and writable PF_RAND_ADDR segments
-    bool is_pot_flags =
+    // Protect RELRO and writable PF_RAND_ADDR segments if not already protected
+    // above.
+    bool is_pot_flags = (this->pot_index == kPOTIndexError) &&
       (cur_phdr->p_flags & (PF_RAND_ADDR | PF_W)) == (PF_RAND_ADDR | PF_W);
     if (cur_phdr->p_type != PT_GNU_RELRO && !is_pot_flags) {
       continue;

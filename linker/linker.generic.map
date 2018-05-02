@@ -22,6 +22,7 @@
     __loader_add_thread_local_dtor;
     __loader_remove_thread_local_dtor;
     rtld_db_dlactivity;
+    _PAGE_OFFSET_TABLE_;
   local:
     *;
 };

@@ -398,6 +398,8 @@ struct soinfo {
     return find_rand_segment(vaddr) != nullptr;
   }
 
+  size_t pot_index;
+
  private:
   // rand_addr_segments is a vector of randomly mapped segments, sorted by their
   // file virtual address for fast translation from file vaddr to randomized
@@ -425,6 +427,10 @@ struct soinfo {
   // Translate the given in-memory virtual address to its corresponding file
   // virtual address.
   ElfW(Addr) mem_to_file_vaddr(ElfW(Addr) mem_vaddr) const;
+
+  const ElfW(Sym)* pot_symbol_;
+ public:
+  void find_pot_symbol();
 };
 
 // This function is used by dlvsym() to calculate hash of sym_ver

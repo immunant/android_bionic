@@ -89,6 +89,10 @@ void __loader_remove_thread_local_dtor(void* dso_handle) __LINKER_PUBLIC__;
 #if defined(__arm__)
 _Unwind_Ptr __loader_dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount) __LINKER_PUBLIC__;
 #endif
+
+// This is a fake symbol which is special cased to point to the dynamically
+// allocated POT base.
+void* _PAGE_OFFSET_TABLE_ __LINKER_PUBLIC__;
 }
 
 static pthread_mutex_t g_dl_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -334,6 +338,7 @@ soinfo* get_libdl_info(const char* linker_path,
 #if defined(__work_around_b_24465209__)
     strlcpy(__libdl_info->old_name_, __libdl_info->soname_, sizeof(__libdl_info->old_name_));
 #endif
+    __libdl_info->pot_symbol_ = linker_si.pot_symbol_;
   }
 
   return __libdl_info;

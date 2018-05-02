@@ -565,6 +565,10 @@ extern "C" ElfW(Addr) __linker_init(void* raw_args) {
   // functions at this point.
   if (!linker_so.link_image(g_empty_list, g_empty_list, nullptr)) __linker_cannot_link(args.argv[0]);
 
+  // TODO (sjc): Don't special case the _PAGE_OFFSET_TABLE_ symbol, there's got
+  // to be a better way to redirect this symbol.
+  linker_so.find_pot_symbol();
+
   return __linker_init_post_relocation(args, linker_addr, linker_so);
 }
 

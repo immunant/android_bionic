@@ -55,6 +55,7 @@ class ElfReader {
   const char* get_string(ElfW(Word) index) const;
   bool is_mapped_by_caller() const { return mapped_by_caller_; }
   const soinfo::seginfo_list_t& rand_addr_segments() { return rand_addr_segments_; }
+  size_t pot_index() { return pot_index_; }
 
  private:
   bool ReadElfHeader();
@@ -107,6 +108,8 @@ class ElfReader {
 
   // PT_RAND_ADDR segments
   soinfo::seginfo_list_t rand_addr_segments_;
+
+  size_t pot_index_;
 };
 
 size_t phdr_table_get_load_size(const ElfW(Phdr)* phdr_table, size_t phdr_count,
