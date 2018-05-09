@@ -246,6 +246,11 @@ cc_library {
     arch: {
         arm: {
             version_script: "linker.arm.map",
+
+            // We need to make sure that this function is preserved because it
+            // will be referenced by the exidx section but gets dropped by
+            // internalization before that point.
+            ldflags: ["-Wl,--undefined,__aeabi_unwind_cpp_pr0"],
         },
         arm64: {
             version_script: "linker.generic.map",
