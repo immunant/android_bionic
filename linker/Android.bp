@@ -291,4 +291,5 @@ cc_library {
     sanitize: {
         never: true,
     },
+    pagerando: false,
 }
