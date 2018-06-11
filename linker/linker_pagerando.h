@@ -45,4 +45,4 @@ ElfW(Addr) get_random_address();
 
 
 constexpr size_t kPOTIndexError = static_cast<size_t>(-1);
-size_t get_pot_index(const std::string &soname);
+std::pair<size_t, bool> get_pot_index(const std::string &soname);

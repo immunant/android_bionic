@@ -103,10 +103,14 @@ public:
 
   bool read_pot_map(const char *pot_map_path);
 
-  size_t get_pot_index(const std::string &soname);
+  // Returns a pair consisting of the index of the POT and a boolean signifying
+  // whether this POT index has been requested previously. The boolean for a POT
+  // index is set to true the first time this functions looks up that index.
+  std::pair<size_t, bool> get_pot_index(const std::string &soname);
 
 private:
-  std::unordered_map<std::string, size_t> pot_indices_;
+
+  std::unordered_map<std::string, std::pair<size_t, bool> > pot_indices_;
   bool initialized_;
 };
 
@@ -131,7 +135,7 @@ bool POTIndexMap::read_pot_map(const char *pot_map_path = kPOTMapPath) {
     }
 
     DEBUG("Assigning %s to index %zu", line.c_str(), index);
-    pot_indices_[line] = index;
+    pot_indices_[line] = std::make_pair(index, false);
 
     pos = next_newline + 1;
     ++index;
@@ -141,10 +145,10 @@ bool POTIndexMap::read_pot_map(const char *pot_map_path = kPOTMapPath) {
 }
 
 
-size_t POTIndexMap::get_pot_index(const std::string &soname) {
+std::pair<size_t, bool> POTIndexMap::get_pot_index(const std::string &soname) {
   if (!initialized_) {
     if (!read_pot_map()) {
-      return kPOTIndexError;
+      return std::make_pair(kPOTIndexError, false);
     }
 
     initialized_ = true;
@@ -152,14 +156,17 @@ size_t POTIndexMap::get_pot_index(const std::string &soname) {
 
   auto it = pot_indices_.find(soname);
   if (it == pot_indices_.end()) {
-    return kPOTIndexError;
+    return std::make_pair(kPOTIndexError, false);
   }
 
-  return it->second;
+  std::pair<size_t, bool> ret_value = it->second;
+  it->second.second = true;
+
+  return ret_value;
 }
 
 static POTIndexMap g_pot_map;
 
-size_t get_pot_index(const std::string &soname) {
+std::pair<size_t, bool> get_pot_index(const std::string &soname) {
   return g_pot_map.get_pot_index(soname);
 }

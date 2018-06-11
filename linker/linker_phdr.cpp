@@ -673,8 +673,10 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       // If we are mapping a non-executable pagerando segment, it must be a POT
       // page. We should map it into the correct place in the global POT.
       if ((phdr->p_flags & PF_X) == 0) {
-        size_t pot_index_ = get_pot_index(resolve_soname(name_));
-        if (pot_index_ != kPOTIndexError) {
+        std::pair<size_t, bool> pot_entry = get_pot_index(resolve_soname(name_));
+        size_t pot_index_ = pot_entry.first;
+        bool already_mapped = pot_entry.second;
+        if (!already_mapped && pot_index_ != kPOTIndexError) {
           // We want a fixed mapping for this segment and we can assume there
           // won't be a collision since we've already reserved space.
           seg_start = get_pot_base();
