@@ -674,7 +674,7 @@ bool ElfReader::LoadSegments(const android_dlextinfo* extinfo) {
       // page. We should map it into the correct place in the global POT.
       if ((phdr->p_flags & PF_X) == 0) {
         std::pair<size_t, bool> pot_entry = get_pot_index(resolve_soname(name_));
-        size_t pot_index_ = pot_entry.first;
+        pot_index_ = pot_entry.first;
         bool already_mapped = pot_entry.second;
         if (!already_mapped && pot_index_ != kPOTIndexError) {
           // We want a fixed mapping for this segment and we can assume there
