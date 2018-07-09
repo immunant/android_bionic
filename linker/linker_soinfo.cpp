@@ -775,6 +775,11 @@ void soinfo::generate_handle() {
   g_soinfo_handles_map[handle_] = this;
 }
 
+bool soinfo::is_unified_pot() const {
+  return (get_dt_flags_1() & DF_1_UNIPOT) &&
+    pot_index != kPOTIndexError;
+}
+
 void soinfo::set_rand_addr_segments(const seginfo_list_t &segments) {
   rand_addr_segments = segments;
   if (rand_addr_segments.size() == 0)

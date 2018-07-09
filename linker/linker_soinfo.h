@@ -401,6 +401,8 @@ struct soinfo {
   size_t pot_index;
 
  private:
+  bool is_unified_pot() const;
+
   // rand_addr_segments is a vector of randomly mapped segments, sorted by their
   // file virtual address for fast translation from file vaddr to randomized
   // vaddr in file_to_mem_vaddr().

@@ -65,7 +65,7 @@
 #define ELF64_R_TYPE(info)  (((info) >> 56) & 0xff)
 #endif
 
-#define SUPPORTED_DT_FLAGS_1 (DF_1_NOW | DF_1_GLOBAL | DF_1_NODELETE | DF_1_PIE)
+#define SUPPORTED_DT_FLAGS_1 (DF_1_NOW | DF_1_GLOBAL | DF_1_NODELETE | DF_1_PIE | DF_1_UNIPOT)
 
 // Class used construct version dependency graph.
 class VersionTracker {

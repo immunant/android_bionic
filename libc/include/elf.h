@@ -233,6 +233,7 @@ typedef Elf64_Xword Elf64_Relr;
 #define DF_1_SINGLETON  0x02000000
 #define DF_1_STUB       0x04000000
 #define DF_1_PIE        0x08000000
+#define DF_1_UNIPOT     0x10000000 /* Unified POT for pagerando */
 
 /* http://www.sco.com/developers/gabi/latest/ch5.dynamic.html */
 #define DT_BIND_NOW 24
