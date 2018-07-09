@@ -2715,6 +2715,19 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         return false;
       }
 
+      // If both source and destination SOs are unified POT pagerando libs, we
+      // can skip the wrapper and directly target the function.
+      if (type == 0xe000 && lsi && is_unified_pot() && lsi->is_unified_pot()) {
+        std::string orig_sym_name(sym_name);
+        orig_sym_name += "$$orig";
+        SymbolName symbol_name(orig_sym_name.c_str());
+        const ElfW(Sym)* unwrapped_symbol = nullptr;
+        lsi->find_symbol_by_name(symbol_name, vi, &unwrapped_symbol);
+        // If this failed, we should just point to the wrapper
+        if (unwrapped_symbol)
+          s = unwrapped_symbol;
+      }
+
       if (s == nullptr) {
         // We only allow an undefined symbol if this is a weak reference...
         s = &symtab_[sym];
@@ -2740,6 +2753,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
           case R_GENERIC_GLOB_DAT:
           case R_GENERIC_RELATIVE:
           case R_GENERIC_IRELATIVE:
+          case 0xe000:
 #if defined(__aarch64__)
           case R_AARCH64_ABS64:
           case R_AARCH64_ABS32:
@@ -2817,6 +2831,7 @@ bool soinfo::relocate(const VersionTracker& version_tracker, ElfRelIteratorT&& r
         *reinterpret_cast<ElfW(Addr)*>(reloc) = (sym_addr + addend);
         break;
       case R_GENERIC_GLOB_DAT:
+      case 0xe000:
         count_relocation(kRelocAbsolute);
         MARK(rel->r_offset);
         TRACE_TYPE(RELO, "RELO GLOB_DAT %16p <- %16p %s\n",
